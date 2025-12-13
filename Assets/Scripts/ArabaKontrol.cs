@@ -1,95 +1,109 @@
 using UnityEngine;
+using UnityEngine.InputSystem; // New Input System kullanacağız
 
 public class ArabaKontrol : MonoBehaviour
 {
-    [Header("S�r�� Ayarlar�")]
-    public float hizlanmaGucu = 15f;
-    public float donusHizi = 100f;
-    public float maksimumHiz = 20f;
+    [Header("Ayarlar")]
+    public float motorForce = 1500f;
+    public float breakForce = 3000f;
+    public float maxSteerAngle = 30f;
 
-    [Header("Sinyal Sistemi")]
-    public GameObject solSinyalGrubu; // Hiyerar�ideki o ���k grubu
-    public GameObject sagSinyalGrubu;
+    [Header("Wheel Colliders")]
+    public WheelCollider frontLeftCollider;
+    public WheelCollider frontRightCollider;
+    public WheelCollider rearLeftCollider;
+    public WheelCollider rearRightCollider;
 
-    // Sinyal durumlar� (D��ar�dan okumak gerekebilir)
-    public bool solSinyalAcik { get; private set; }
-    public bool sagSinyalAcik { get; private set; }
+    [Header("Wheel Transforms (Görsellik İçin)")]
+    public Transform frontLeftTransform;
+    public Transform frontRightTransform;
+    public Transform rearLeftTransform;
+    public Transform rearRightTransform;
 
-    private Rigidbody rb;
-    private float gazGiris;
-    private float direksiyonGiris;
+    // Input Değerleri
+    private float currentSteerAngle;
+    private float currentbreakForce;
+    private Vector2 inputVector;
 
-    void Start()
+    // XR Input Referansı (Bunu editörden bağlayacaksın)
+    public InputActionProperty steeringInput;
+
+    private void FixedUpdate()
     {
-        rb = GetComponent<Rigidbody>();
-        // Ba�lang��ta sinyalleri kapat
-        SinyalKapat();
+        GetInput();
+        HandleMotor();
+        HandleSteering();
+        UpdateWheels();
     }
 
-    void Update()
+    private void GetInput()
     {
-        // Girdileri Al (WASD veya Ok Tu�lar�)
-        gazGiris = Input.GetAxis("Vertical");   // W/S veya Yukar�/A�a��
-        direksiyonGiris = Input.GetAxis("Horizontal"); // A/D veya Sa�/Sol
+        // 1. Önce XR Kontrolcüsünden veriyi okumayı dene
+        Vector2 xrInput = Vector2.zero;
 
-        // Sinyal Kontrol� (Q ve E tu�lar�)
-        if (Input.GetKeyDown(KeyCode.Q)) SolSinyalYak();
-        if (Input.GetKeyDown(KeyCode.E)) SagSinyalYak();
-    }
-
-    void FixedUpdate()
-    {
-        // Hareket (Fizik motoruna g�� uygula)
-        if (Mathf.Abs(gazGiris) > 0.1f)
+        // Action null değilse ve aktifse oku
+        if (steeringInput.action != null && steeringInput.action.enabled)
         {
-            // �leri/Geri itme g�c�
-            rb.AddForce(transform.forward * gazGiris * hizlanmaGucu, ForceMode.Acceleration);
+            xrInput = steeringInput.action.ReadValue<Vector2>();
         }
 
-        // D�n�� (Sadece hareket ederken d�nebilsin)
-        if (rb.linearVelocity.magnitude > 1f)
+        // 2. Eğer XR'dan veri gelmiyorsa (veya kask yoksa), Klavyeye (WASD) bak
+        if (xrInput == Vector2.zero)
         {
-            // Geri giderken direksiyon ters d�nmeli mi? Evet.
-            float yonCarpan = gazGiris >= 0 ? 1 : -1;
-            float donus = direksiyonGiris * donusHizi * Time.fixedDeltaTime * yonCarpan;
-
-            // Arabay� oldu�u yerde d�nd�r (Y ekseninde)
-            Quaternion donusMiktari = Quaternion.Euler(0f, donus, 0f);
-            rb.MoveRotation(rb.rotation * donusMiktari);
+            xrInput.x = Input.GetAxis("Horizontal"); // A-D veya Sol-Sağ ok
+            xrInput.y = Input.GetAxis("Vertical");   // W-S veya Yukarı-Aşağı ok
         }
 
-        // H�z Limiti (�ok u�mas�n)
-        if (rb.linearVelocity.magnitude > maksimumHiz)
-        {
-            rb.linearVelocity = rb.linearVelocity.normalized * maksimumHiz;
-        }
+        // Sonucu genel değişkene ata
+        inputVector = xrInput;
     }
 
-    // --- S�NYAL FONKS�YONLARI ---
-    void SolSinyalYak()
+    private void HandleMotor()
     {
-        solSinyalAcik = !solSinyalAcik; // Varsa kapat, yoksa a� (Toggle)
-        sagSinyalAcik = false; // Sa�� kesin kapat
-        GorselGuncelle();
+        // Y ekseni (ileri/geri) gaz ve freni kontrol eder
+        float acceleration = inputVector.y * motorForce;
+
+        // Basit bir 4x4 mantığı
+        frontLeftCollider.motorTorque = acceleration;
+        frontRightCollider.motorTorque = acceleration;
+        rearLeftCollider.motorTorque = acceleration;
+        rearRightCollider.motorTorque = acceleration;
+
+        // Eğer input yoksa otomatik fren (sürtünme simülasyonu)
+        currentbreakForce = inputVector.y == 0 ? 100f : 0f;
+        ApplyBrake();
     }
 
-    void SagSinyalYak()
+    private void ApplyBrake()
     {
-        sagSinyalAcik = !sagSinyalAcik;
-        solSinyalAcik = false;
-        GorselGuncelle();
+        frontLeftCollider.brakeTorque = currentbreakForce;
+        frontRightCollider.brakeTorque = currentbreakForce;
+        rearLeftCollider.brakeTorque = currentbreakForce;
+        rearRightCollider.brakeTorque = currentbreakForce;
     }
 
-    void SinyalKapat()
+    private void HandleSteering()
     {
-        solSinyalAcik = false;
-        sagSinyalAcik = false;
-        GorselGuncelle();
+        // X ekseni (sağ/sol) direksiyonu kontrol eder
+        currentSteerAngle = maxSteerAngle * inputVector.x;
+        frontLeftCollider.steerAngle = currentSteerAngle;
+        frontRightCollider.steerAngle = currentSteerAngle;
     }
 
-    void GorselGuncelle()
+    private void UpdateWheels()
     {
-        if (solSinyalGrubu) solSinyalGrubu.SetActive(solSinyalAcik);
-        if (sagSinyalGrubu) sagSinyalGrubu.SetActive(sagSinyalAcik);
+        UpdateSingleWheel(frontLeftCollider, frontLeftTransform);
+        UpdateSingleWheel(frontRightCollider, frontRightTransform);
+        UpdateSingleWheel(rearLeftCollider, rearLeftTransform);
+        UpdateSingleWheel(rearRightCollider, rearRightTransform);
+    }
+
+    private void UpdateSingleWheel(WheelCollider wheelCollider, Transform wheelTransform)
+    {
+        Vector3 pos;
+        Quaternion rot;
+        wheelCollider.GetWorldPose(out pos, out rot);
+        wheelTransform.rotation = rot;
+        wheelTransform.position = pos;
     }
 }

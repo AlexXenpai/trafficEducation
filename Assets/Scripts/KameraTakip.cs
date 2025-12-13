@@ -1,28 +1,25 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class KameraTakip : MonoBehaviour
 {
-    public Transform hedef; // Takip edilecek araba
-
-    [Header("Ayarlar")]
-    public Vector3 mesafe = new Vector3(0, 5, -10); // Arkadan ve yukarýdan bakýþ
-    public float takipYumusakligi = 5f;
-    public float donusYumusakligi = 10f;
+    public Transform target; // Araba
+    public Vector3 offset = new Vector3(0, 5, -8); // Arkadan ve yukarýdan bakýþ
+    public float smoothSpeed = 0.125f;
 
     void FixedUpdate()
     {
-        if (hedef == null) return;
+        Vector3 desiredPosition = target.position + target.TransformDirection(offset);
+        // Lerp ile yumuþak geçiþ saðla, titremeyi önler
+        Vector3 smoothedPosition = Vector3.Lerp(transform.position, desiredPosition, smoothSpeed);
+        transform.position = smoothedPosition;
 
-        // 1. Pozisyon Takibi
-        // Arabanýn arkasýndaki hedef pozisyonu belirle
-        Vector3 hedefPozisyon = hedef.TransformPoint(mesafe);
+        // Arabaya bak ama kafayý kilitleme (LookAt kullanma), 
+        // Kullanýcý VR'da kafasýný çevirip etrafa bakabilmeli.
+        // Sadece pozisyonu takip et, rotasyonu kullanýcýya býrak veya çok hafif döndür.
 
-        // Oraya yumuþakça kay (Lerp)
-        transform.position = Vector3.Lerp(transform.position, hedefPozisyon, takipYumusakligi * Time.deltaTime);
-
-        // 2. Rotasyon Takibi (Arabaya bak)
-        // Arabanýn baktýðý yere bak ama çok sarsýlma
-        Quaternion hedefRotasyon = Quaternion.LookRotation(hedef.position - transform.position);
-        transform.rotation = Quaternion.Slerp(transform.rotation, hedefRotasyon, donusYumusakligi * Time.deltaTime);
+        // Basitçe aracýn arkasýna dönmesi için:
+        transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(target.forward), smoothSpeed);
     }
 }

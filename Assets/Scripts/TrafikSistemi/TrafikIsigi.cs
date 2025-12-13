@@ -1,22 +1,24 @@
-using UnityEngine;
 using System.Collections;
+using UnityEngine;
 
 public class TrafikIsigi : MonoBehaviour
 {
     public enum IsikDurumu { Kirmizi, Sari, Yesil }
     public IsikDurumu suankiDurum;
 
-    // ARTIK TEK BİR RENDERER DEĞİL, 3 AYRI LAMBA İSTİYORUZ
     [Header("Modelin Parçaları")]
     public Renderer kirmiziLambaObjesi;
     public Renderer sariLambaObjesi;
     public Renderer yesilLambaObjesi;
 
-    // Işık Parlaklığı için renkler (Emission simülasyonu)
-    private Color parlakKirmizi = new Color(1f, 0f, 0f, 1f); // Tam Kırmızı
-    private Color parlakSari = new Color(1f, 0.92f, 0.016f, 1f); // Tam Sarı
-    private Color parlakYesil = new Color(0f, 1f, 0f, 1f); // Tam Yeşil
-    private Color sonukRenk = Color.black; // Sönük hali (Siyah)
+    [Header("Fiziksel Engel (Kritik)")]
+    public GameObject ihlalBolgesiObjesi; // <-- BUNU EKLEDİK. Inspector'dan buraya o objeyi sürükle.
+
+    // Işık Parlaklığı için renkler
+    private Color parlakKirmizi = new Color(1f, 0f, 0f, 1f);
+    private Color parlakSari = new Color(1f, 0.92f, 0.016f, 1f);
+    private Color parlakYesil = new Color(0f, 1f, 0f, 1f);
+    private Color sonukRenk = Color.black;
 
     // Süreler
     public float kirmiziSure = 5f;
@@ -25,17 +27,14 @@ public class TrafikIsigi : MonoBehaviour
 
     void Start()
     {
-        // Başlangıçta döngüyü başlat
         StartCoroutine(TrafikIsigiDongusu());
     }
 
-    // --- DIŞARIDAN KONTROL İÇİN YENİ METOT (Kavşak Yöneticisi İçin Hazırlık) ---
     public void DisaridanDurumAta(IsikDurumu yeniDurum)
     {
-        StopAllCoroutines(); // Kendi döngüsünü durdur
-        IsiklariGuncelle(yeniDurum); // Yeni durumu uygula
+        StopAllCoroutines();
+        IsiklariGuncelle(yeniDurum);
     }
-    // --------------------------------------------------------------------------
 
     IEnumerator TrafikIsigiDongusu()
     {
@@ -44,13 +43,13 @@ public class TrafikIsigi : MonoBehaviour
             IsiklariGuncelle(IsikDurumu.Kirmizi);
             yield return new WaitForSeconds(kirmiziSure);
 
-            IsiklariGuncelle(IsikDurumu.Sari);
+            IsiklariGuncelle(IsikDurumu.Sari); // Kırmızıdan Yeşile geçerken Sarı (Hazırlan)
             yield return new WaitForSeconds(sariSure);
 
             IsiklariGuncelle(IsikDurumu.Yesil);
             yield return new WaitForSeconds(yesilSure);
 
-            IsiklariGuncelle(IsikDurumu.Sari);
+            IsiklariGuncelle(IsikDurumu.Sari); // Yeşilden Kırmızıya geçerken Sarı (Durmaya hazırlan)
             yield return new WaitForSeconds(sariSure);
         }
     }
@@ -59,12 +58,11 @@ public class TrafikIsigi : MonoBehaviour
     {
         suankiDurum = durum;
 
-        // Önce hepsini söndür (Siyah yap)
+        // 1. Görsel Güncelleme (Renkler)
         if (kirmiziLambaObjesi) kirmiziLambaObjesi.material.color = sonukRenk;
         if (sariLambaObjesi) sariLambaObjesi.material.color = sonukRenk;
         if (yesilLambaObjesi) yesilLambaObjesi.material.color = sonukRenk;
 
-        // Sadece durumu aktif olanı boya
         switch (durum)
         {
             case IsikDurumu.Kirmizi:
@@ -76,6 +74,25 @@ public class TrafikIsigi : MonoBehaviour
             case IsikDurumu.Yesil:
                 if (yesilLambaObjesi) yesilLambaObjesi.material.color = parlakYesil;
                 break;
+        }
+
+        // 2. FİZİKSEL GÜNCELLEME (İhlal Bölgesi Kontrolü)
+        if (ihlalBolgesiObjesi != null)
+        {
+            // Eğer ışık KIRMIZI veya SARI ise engel AKTİF olsun (Araba çarpsın ve dursun).
+            // Sadece YEŞİL olduğunda engel kalksın.
+            if (durum == IsikDurumu.Kirmizi || durum == IsikDurumu.Sari)
+            {
+                ihlalBolgesiObjesi.SetActive(true);
+            }
+            else // Durum Yeşil ise
+            {
+                ihlalBolgesiObjesi.SetActive(false);
+            }
+        }
+        else
+        {
+            Debug.LogWarning("TrafikIsigi: Ihlal Bolgesi Objesi atanmamış! Arabalar durmaz.");
         }
     }
 }

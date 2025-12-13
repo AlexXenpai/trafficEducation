@@ -1,21 +1,28 @@
 using UnityEngine;
+using UnityEngine.XR.Interaction.Toolkit; // BU SATIRI EKLEMEZSEN HATA ALIRSIN
 
 public class ModSecimi : MonoBehaviour
 {
     [Header("Oyuncular")]
-    public GameObject arabaOyuncusu; // Arabayý buraya sürükle
-    public GameObject yayaOyuncusu;  // Yayayý buraya sürükle
+    public GameObject arabaOyuncusu;
+    public GameObject yayaOyuncusu;
 
     [Header("UI")]
-    public GameObject girisPaneli;   // Siyah paneli buraya sürükle
-    public GameObject xrRig;         // MR Interaction Setup'ý buraya sürükle
+    public GameObject girisPaneli;
+    public GameObject xrRig;
+
+    [Header("Yürüme Kontrolü (BUNLARI YENÝ EKLEDÝK)")]
+    // Karakterin yürümesini saðlayan script
+    public ActionBasedContinuousMoveProvider moveProvider;
+    // Karakterin dönmesini saðlayan script
+    public ActionBasedContinuousTurnProvider turnProvider;
 
     void Start()
     {
-        // Oyunu dondur (Zamaný durdur)
-        Time.timeScale = 0;
+        if (xrRig == null) xrRig = GameObject.FindGameObjectWithTag("Player");
 
-        // Paneli aç, oyuncularý kapat
+        // Baþlangýçta zaman dursun
+        Time.timeScale = 0;
         girisPaneli.SetActive(true);
         arabaOyuncusu.SetActive(false);
         yayaOyuncusu.SetActive(false);
@@ -23,41 +30,43 @@ public class ModSecimi : MonoBehaviour
 
     public void ArabaModunuSec()
     {
-        Debug.Log("Araba Modu Seçildi");
+        Debug.Log("Araba Modu: Yürüme KAPATILIYOR.");
 
-        // 1. Arabayý aç
         arabaOyuncusu.SetActive(true);
 
-        // 2. XR Rig'i arabaya oturt (Parent yap ve sýfýrla)
-        xrRig.transform.SetParent(arabaOyuncusu.transform); // SurucuKoltugu ismine dikkat!
-        xrRig.transform.localPosition = new Vector3(18, 8, -10);
-        xrRig.transform.localRotation = Quaternion.Euler(22, 0, 0);
+        // XR Rig'i arabaya sabitle
+        xrRig.transform.SetParent(arabaOyuncusu.transform);
+        xrRig.transform.localPosition = new Vector3(0, 1.0f, -0.2f); // Koltuk ayarý (Deneyerek bul)
+        xrRig.transform.localRotation = Quaternion.identity;
+
+        // KRÝTÝK HAMLE: Karakterin yürümesini ve dönmesini kapatýyoruz
+        if (moveProvider != null) moveProvider.enabled = false;
+        if (turnProvider != null) turnProvider.enabled = false;
 
         OyunuBaslat();
     }
 
     public void YayaModunuSec()
     {
-        Debug.Log("Yaya Modu Seçildi");
+        Debug.Log("Yaya Modu: Yürüme AÇILIYOR.");
 
-        // 1. Yayayý aç
         yayaOyuncusu.SetActive(true);
 
-        // 2. XR Rig'i yayanýn kafasýna oturt
-        // Yayanýn içinde 'CameraRoot' veya kafa hizasýnda bir obje olmalý
+        // XR Rig'i yaya gövdesine sabitle
         xrRig.transform.SetParent(yayaOyuncusu.transform);
-        xrRig.transform.localPosition = new Vector3(0, 1.6f, 0); // Yerden 1.6m yukarý (Kafa hizasý)
+        xrRig.transform.localPosition = new Vector3(0, 1.6f, 0);
         xrRig.transform.localRotation = Quaternion.identity;
+
+        // KRÝTÝK HAMLE: Karakter artýk yürüyebilir
+        if (moveProvider != null) moveProvider.enabled = true;
+        if (turnProvider != null) turnProvider.enabled = true;
 
         OyunuBaslat();
     }
 
     void OyunuBaslat()
     {
-        // Paneli kapat
         girisPaneli.SetActive(false);
-
-        // Zamaný akýt
         Time.timeScale = 1;
     }
 }

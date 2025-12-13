@@ -3,7 +3,7 @@ using System;
 
 
 public class IhlalBolgesi : MonoBehaviour
-{
+{/*
     public TrafikIsigi bagliTrafikIsigi; // Hangi ýþýðý denetliyoruz?
 
     // Arabanýn etiketi (Tag) mutlaka "Player" olmalý.
@@ -82,5 +82,5 @@ public class IhlalBolgesi : MonoBehaviour
         {
             Debug.Log("Güvenli geçiþ.");
         }
-    }
+    }*/
 }

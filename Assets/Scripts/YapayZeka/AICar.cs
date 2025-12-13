@@ -1,115 +1,120 @@
+using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.AI;
 
+
 public class AICar : MonoBehaviour
 {
-    [Header("Rota Ayarlarý")]
-    public Transform rotaKonteyneri; // BURAYA 'Rota1' OBJESÝNÝ SÜRÜKLEYECEKSÝN
-    public List<Transform> rotaNoktalari = new List<Transform>(); // Bu liste otomatik dolacak
+    public float safeDistance = 2f;
+    public float carSpeed = 5f;
+    public string[] tags;
 
-    [Header("Diðer Ayarlar")]
-    public float beklemeSuresi = 0f;
+    public GameObject currentTrafficRoute;
+    public GameObject nextWaypoint;
+    public int currentWapointNumber;
 
-    private NavMeshAgent ajan;
-    private int aktifNoktaIndex = 0;
-    private bool duruyor = false;
+    private NavMeshAgent _carNavmesh;
 
-    private bool hariciBaslatildi = false; // Spawner tarafýndan mý baþlatýldý?
-
-    // Start fonksiyonunu ÞÖYLE DEÐÝÞTÝR:
-    void Start()
+    private bool isiktaDuruyor = false;
+    private void Start()
     {
-        ajan = GetComponent<NavMeshAgent>();
+        _carNavmesh = this.gameObject.GetComponent<NavMeshAgent>();
+        _carNavmesh.speed = carSpeed;
+    }
 
-        // Eðer Spawner tarafýndan baþlatýlmadýysa (Manuel koyduysan)
-        // Eski mantýkla çalýþmaya devam etsin
-        if (!hariciBaslatildi && rotaKonteyneri != null)
+    private void Update()
+    {
+        RaycastHit hit;
+
+        // Varsayýlan olarak her karede hareket etmeye çalýþmalýyýz.
+        // Durdurucu bir engel çýkarsa aþaðýda fikrimizi deðiþtireceðiz.
+        bool engelVar = false;
+
+        // Raycast'i IF içinde kullan. Çarparsa TRUE döner.
+        if (Physics.Raycast(transform.position, transform.forward, out hit, safeDistance))
         {
-            RotaNoktalariniBul(); // Bunu aþaðýda ayrý fonksiyona aldýk
-            HedefeGit();
+            // 1. Etiket Kontrolü
+            for (int i = 0; i < tags.Length; i++)
+            {
+                if (hit.transform.CompareTag(tags[i]))
+                {
+                    // 2. Mesafe Kontrolü (Ýstediðin Özellik)
+                    // Zaten safeDistance kadar uzaða bakýyoruz ama 
+                    // ekstra garantici olmak istersen veya farklý tepki vereceksen:
+                    if (hit.distance <= 3.5f) // Örn: 2 metreden yakýnsa
+                    {
+                        engelVar = true;
+                        Stop(); // Çakýl
+                        break; // Döngüyü kýr, engeli bulduk.
+                    }
+                }
+            }
         }
-    }
 
-    // BU YENÝ FONKSÝYONU SCRIPTÝN ÝÇÝNE EKLE:
-    // Rota noktalarýný listeye dolduran yardýmcý fonksiyon
-    void RotaNoktalariniBul()
-    {
-        rotaNoktalari.Clear();
-        foreach (Transform cocuk in rotaKonteyneri)
+        // Eðer engel yoksa hareket etmeye devam et
+        if (!engelVar)
         {
-            rotaNoktalari.Add(cocuk);
+            Move();
         }
+
+        // Debug Çizgisi: Sahne ekranýnda ýþýný gör ki ne yaptýðýný anla.
+        Debug.DrawRay(transform.position, transform.forward * safeDistance, Color.red);
     }
 
-    // --- SPAWNER'IN ÇAÐIRACAÐI KRÝTÝK FONKSÝYON ---
-    public void SpawnerIleBaslat(Transform rotaK, int baslangicIndex)
+    void Stop()
     {
-        hariciBaslatildi = true;
-        ajan = GetComponent<NavMeshAgent>(); // Garanti olsun diye tekrar alalým
-
-        rotaKonteyneri = rotaK;
-        RotaNoktalariniBul(); // Noktalarý listeye çek
-
-        // Baþlangýç indeksini ayarla
-        aktifNoktaIndex = baslangicIndex;
-
-        // Arabayý direkt o noktanýn pozisyonuna ve rotasyonuna ýþýnla (Doðru yöne baksýn)
-        // Not: NavMeshAgent bazen ýþýnlanmayý sevmez, o yüzden Warp kullanýyoruz.
-        ajan.Warp(rotaNoktalari[aktifNoktaIndex].position);
-        transform.rotation = rotaNoktalari[aktifNoktaIndex].rotation;
-
-        // Bir sonraki hedefe kilitlen (Spawn olduðu yerde durmasýn, bir sonrakine gitsin)
-        SiradakiNoktayaGec();
+        _carNavmesh.speed = 0;
     }
 
-    void Update()
+    void Move()
     {
-        if (duruyor)
+        if (nextWaypoint == null)
         {
-            ajan.isStopped = true;
-            return;
+            _carNavmesh.speed = 0;
+        }
+
+        if (currentWapointNumber > 0)
+        {
+            if (_carNavmesh.speed == 0)
+                _carNavmesh.speed = carSpeed;
+
+            _carNavmesh.SetDestination(currentTrafficRoute.transform.GetChild(currentWapointNumber - 1).transform.position);
+
         }
         else
         {
-            ajan.isStopped = false;
-        }
-
-        if (!ajan.pathPending && ajan.remainingDistance < 0.5f)
-        {
-            SiradakiNoktayaGec();
-        }
-
-        OnuKontrolEt();
-    }
-
-    void HedefeGit()
-    {
-        if (rotaNoktalari.Count == 0) return;
-        ajan.SetDestination(rotaNoktalari[aktifNoktaIndex].position);
-    }
-
-    void SiradakiNoktayaGec()
-    {
-        aktifNoktaIndex = (aktifNoktaIndex + 1) % rotaNoktalari.Count;
-        HedefeGit();
-    }
-
-    public void TrafikIsigiDurumu(bool durmali)
-    {
-        duruyor = durmali;
-    }
-
-    void OnuKontrolEt()
-    {
-        RaycastHit hit;
-        if (Physics.Raycast(transform.position, transform.forward, out hit, 5f))
-        {
-            if (hit.collider.CompareTag("AI_Araba"))
+            if (nextWaypoint != null)
             {
-                // Çarpýþma önleyici basit mantýk buraya eklenebilir
+                if (_carNavmesh.speed == 0)
+                    _carNavmesh.speed = carSpeed;
+                _carNavmesh.SetDestination(nextWaypoint.transform.position);
             }
         }
+
+        if (currentWapointNumber > 0)
+        {
+            float distance = Vector3.Distance(transform.position, currentTrafficRoute.transform.GetChild(currentWapointNumber - 1).transform.position);
+            if (distance <= 2)
+                currentWapointNumber -= 1;
+        }
+        else
+        {
+            /*
+            if (nextWaypoint != null)
+            {
+                float distance = Vector3.Distance(transform.position, nextWaypoint.transform.position);
+                if (distance <= 1)
+                {
+                    currentWapointNumber = 2;
+                    currentTrafficRoute = nextWaypoint.transform.parent.gameObject;
+                }
+            }*/
+            
+        }
     }
+
+
+    public void TrafikIsigiDurumu(bool durmali) => isiktaDuruyor = durmali;
+
 }

@@ -1,75 +1,55 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class TrafficSpawner : MonoBehaviour
 {
-    [Header("Ayarlar")]
-    public Transform anaRota; // Bütün noktalarýn olduðu dev Rota objesi
-    public List<GameObject> arabaPrefableri; // 4-5 farklý araba buraya
-    public int arabaSayisi = 50; // Baþlangýçta 50 dene, 600 pc'yi yakabilir.
+    public GameObject[] Cars;
+
+    [Header("Spawn Settings")]
+    [Range(0, 100)]
+    public int spawnPercentage = 30; // Varsayýlan %30 doluluk oraný. Bunu Inspector'dan ayarla.
 
     void Start()
     {
-        TrafigiOlustur();
+        spawn();
     }
 
-    void TrafigiOlustur()
+    void spawn()
     {
-        // 1. Önce Rota içindeki tüm noktalarý bulalým
-        List<Transform> tumNoktalar = new List<Transform>();
-        foreach (Transform nokta in anaRota)
+        // Arabalar listesi boþsa hata vermesin, direkt çýksýn.
+        if (Cars == null || Cars.Length == 0)
         {
-            tumNoktalar.Add(nokta);
-        }
-
-        // Hata kontrolü
-        if (tumNoktalar.Count == 0)
-        {
-            Debug.LogError("HATA: Rota objesinin altýnda hiç nokta yok!");
+            Debug.LogError("SpawnCars: Araba listesi boþ! Inspector'dan araba prefablarýný ekle.");
             return;
         }
 
-        // 2. Noktalarý Karýþtýr (Shuffle) - Böylece arabalar sýrayla deðil rastgele yerleþir
-        // Fisher-Yates Shuffle algoritmasý
-        for (int i = 0; i < tumNoktalar.Count; i++)
+        for (int i = 0; i < transform.childCount; i++)
         {
-            Transform temp = tumNoktalar[i];
-            int randomIndex = Random.Range(i, tumNoktalar.Count);
-            tumNoktalar[i] = tumNoktalar[randomIndex];
-            tumNoktalar[randomIndex] = temp;
-        }
+            // ZAR ATMA ANI:
+            // 0 ile 100 arasýnda rastgele sayý tut. Eðer belirlenen yüzdeden büyükse, bu noktayý pas geç.
+            if (Random.Range(0, 101) > spawnPercentage)
+                continue;
 
-        // 3. Arabalarý Yarat
-        // Eðer araba sayýsý nokta sayýsýndan fazlaysa hata verir, o yüzden limitliyoruz.
-        int spawnAdedi = Mathf.Min(arabaSayisi, tumNoktalar.Count);
+            // Rastgele bir araba seç
+            int ram = Random.Range(0, Cars.Length);
 
-        for (int i = 0; i < spawnAdedi; i++)
-        {
-            // A. Rastgele bir araba modeli seç
-            GameObject secilenPrefab = arabaPrefableri[Random.Range(0, arabaPrefableri.Count)];
+            // Arabayý oluþturmadan önce referanslarý hazýrla
+            // Not: Instantiate etmeden önce orijinal prefab üzerinde deðiþiklik yapamayýz, 
+            // bu yüzden önce objeyi yaratýp sonra ayar yapýyoruz.
+            GameObject newCar = Instantiate(Cars[ram], transform.GetChild(i).position, transform.GetChild(i).rotation);
 
-            // B. Arabayý Yarat (Pozisyon önemli deðil, script düzeltecek)
-            GameObject yeniAraba = Instantiate(secilenPrefab);
+            AICar carAI = newCar.GetComponent<AICar>();
 
-            // C. Arabayý hiyerarþide düzenli tutalým (Spawner'ýn içine atalým)
-            yeniAraba.transform.SetParent(this.transform);
-
-            // D. Arabanýn beynine ulaþýp rotayý verelim
-            AICar aiScript = yeniAraba.GetComponent<AICar>();
-            if (aiScript != null)
+            if (carAI != null)
             {
-                // Hangi noktada doðduysa o noktanýn Orijinal Listesisindeki sýrasýný bulmamýz lazým.
-                // Çünkü biz listeyi karýþtýrdýk (Shuffle).
-                // Ancak AICar scripti sýrayla gitmek için orijinal sýralamaya muhtaç.
-
-                Transform dogduguNokta = tumNoktalar[i];
-                int orijinalIndex = dogduguNokta.GetSiblingIndex(); // Hiyerarþide kaçýncý sýrada?
-
-                // Arabayý baþlat
-                aiScript.SpawnerIleBaslat(anaRota, orijinalIndex);
+                carAI.currentTrafficRoute = this.gameObject;
+                carAI.currentWapointNumber = i;
+            }
+            else
+            {
+                Debug.LogWarning("Spawnlanan arabada 'Car_AI' scripti yok! Araba aptal gibi duracak.");
             }
         }
-
-        Debug.Log(spawnAdedi + " adet araba trafiðe katýldý.");
     }
 }
