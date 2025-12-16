@@ -1,86 +1,94 @@
 using UnityEngine;
-using System;
-
 
 public class IhlalBolgesi : MonoBehaviour
-{/*
-    public TrafikIsigi bagliTrafikIsigi; // Hangi ýþýðý denetliyoruz?
+{
+    public TrafikIsigi bagliTrafikIsigi; // Hangi isigi denetliyoruz?
 
-    // Arabanýn etiketi (Tag) mutlaka "Player" olmalý.
-    void OnTriggerEnter(Collider other)
+    [Header("Ceza Ayarlari")]
+    public int cezaPuani = 20;
+    public string cezaMesaji = "Kirmizi Isik Ihlali";
+
+    private bool cezaKesildi = false;
+
+    // Arabanin etiketi (Tag) mutlaka "Player" olmali.
+    private void OnTriggerEnter(Collider other)
     {
-        // 1. OYUNCU ÝSE CEZA KES (Eski Kodun)
+        // 1) OYUNCU ISE KONTROL ET
         if (other.CompareTag("Player"))
         {
             KontrolEt();
         }
 
-        // 2. YAPAY ZEKA ÝSE DURDUR (Yeni Kod)
+        // 2) YAPAY ZEKA ISE DURDUR
         if (other.CompareTag("AI_Araba"))
         {
             AICar yapayZeka = other.GetComponent<AICar>();
             if (yapayZeka != null)
             {
-                // Eðer ýþýk Kýrmýzý veya Sarý ise DUR emri ver
-                if (bagliTrafikIsigi.suankiDurum != TrafikIsigi.IsikDurumu.Yesil)
+                // Isik Kirmizi/Sari ise DUR
+                if (bagliTrafikIsigi != null &&
+                    bagliTrafikIsigi.suankiDurum != TrafikIsigi.IsikDurumu.Yesil)
                 {
-                    yapayZeka.TrafikIsigiDurumu(true); // DUR
+                    yapayZeka.TrafikIsigiDurumu(true);
                 }
             }
         }
     }
 
-    // OnTriggerStay: Kutu içinde beklerken ýþýk yeþile dönerse?
-    void OnTriggerStay(Collider other)
+    private void OnTriggerStay(Collider other)
     {
         if (other.CompareTag("AI_Araba"))
         {
             AICar yapayZeka = other.GetComponent<AICar>();
-            if (yapayZeka != null)
+            if (yapayZeka != null && bagliTrafikIsigi != null)
             {
-                // Iþýk Yeþile döndüyse GEÇ emri ver
                 if (bagliTrafikIsigi.suankiDurum == TrafikIsigi.IsikDurumu.Yesil)
-                {
-                    yapayZeka.TrafikIsigiDurumu(false); // DEVAM ET
-                }
-                // Iþýk Kýrmýzýya döndüyse DUR emri ver (Sonradan kýrmýzý yandýysa)
+                    yapayZeka.TrafikIsigiDurumu(false); // devam
                 else
-                {
-                    yapayZeka.TrafikIsigiDurumu(true); // DUR
-                }
+                    yapayZeka.TrafikIsigiDurumu(true);  // dur
             }
         }
     }
 
-    // OnTriggerExit: Kutudan çýkýnca (Emin olmak için)
-    void OnTriggerExit(Collider other)
+    private void OnTriggerExit(Collider other)
     {
         if (other.CompareTag("AI_Araba"))
         {
             AICar yapayZeka = other.GetComponent<AICar>();
             if (yapayZeka != null)
             {
-                yapayZeka.TrafikIsigiDurumu(false); // Özgürsün
+                yapayZeka.TrafikIsigiDurumu(false);
             }
+        }
+
+        // Oyuncu kutudan cikinca tekrar ceza kesilebilsin istiyorsan:
+        if (other.CompareTag("Player"))
+        {
+            cezaKesildi = false;
         }
     }
 
-    void KontrolEt()
+    private void KontrolEt()
     {
+        if (bagliTrafikIsigi == null) return;
+
         if (bagliTrafikIsigi.suankiDurum == TrafikIsigi.IsikDurumu.Kirmizi)
         {
-            // ESKÝ KOD: Debug.Log("CEZA! Kýrmýzý Iþýk Ýhlali!");
+            if (cezaKesildi) return; // spam engelle
+            cezaKesildi = true;
 
-            // YENÝ KOD: Patron'a þikayet et
-            GameManager.Instance.CezaVer(20, "Kýrmýzý Iþýk Ýhlali");
+            // 1) CEZA UYARISI
+            Debug.Log("CEZA! " + cezaMesaji + " -" + cezaPuani);
 
-            // Ceza sürekli artmasýn diye bu objeyi geçici olarak kapatabiliriz
-            // ya da bir 'bool cezaKesildi' deðiþkeni ekleyebiliriz.
-            // Þimdilik basit tutuyoruz.
+            // 2) PUAN DUSUR
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.CezaVer(cezaPuani, cezaMesaji);
+            }
         }
         else
         {
-            Debug.Log("Güvenli geçiþ.");
+            Debug.Log("Guvenli gecis.");
         }
-    }*/
+    }
 }

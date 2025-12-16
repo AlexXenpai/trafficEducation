@@ -302,7 +302,7 @@ namespace JBooth.BetterShaders
                   materialEditor.SetDefaultGUIWidths();
                   foreach ( var p in e.properties)
                   {
-                     if (!p.flags.HasFlag(MaterialProperty.PropFlags.HideInInspector))
+                     if (!p.propertyFlags.HasFlag(UnityEngine.Rendering.ShaderPropertyFlags.HideInInspector))
                      {
                         materialEditor.ShaderProperty(p, p.name);
                      }
