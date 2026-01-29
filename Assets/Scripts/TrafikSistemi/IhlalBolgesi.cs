@@ -1,67 +1,143 @@
 using UnityEngine;
 
+/// <summary>
+/// Kırmızı ışık ihlal bölgesi.
+/// Hem araba hem de yaya için çalışır.
+/// </summary>
 public class IhlalBolgesi : MonoBehaviour
 {
-    public TrafikIsigi bagliTrafikIsigi; // Hangi isigi denetliyoruz?
+    public TrafikIsigi bagliTrafikIsigi; // Hangi ışığı denetliyoruz?
 
-    [Header("Ceza Ayarlari")]
-    public int cezaPuani = 20;
-    public string cezaMesaji = "Kirmizi Isik Ihlali";
+    [Header("Araba Ceza Ayarları")]
+    public int arabaCezaPuani = 30;
+    public string arabaCezaMesaji = "Kırmızı Işıkta Geçtiniz!";
 
-    private bool cezaKesildi = false;
+    [Header("Yaya Ceza Ayarları")]
+    public int yayaCezaPuani = 15;
+    public string yayaCezaMesaji = "Kırmızı Işıkta Karşıya Geçtiniz!";
 
-    // Arabanin etiketi (Tag) mutlaka "Player" olmali.
+    // Spam önleme
+    private bool arabaCezaKesildi = false;
+    private bool yayaCezaKesildi = false;
+
     private void OnTriggerEnter(Collider other)
     {
-        // 1) OYUNCU ISE KONTROL ET
-        if (other.CompareTag("Player"))
+        // 1) OYUNCU ARABASI (PlayerCar tag'i)
+        if (other.CompareTag("PlayerCar"))
         {
-            KontrolEt();
+            KontrolEtAraba();
         }
 
-        // 2) YAPAY ZEKA ISE DURDUR
+        // 2) OYUNCU YAYASI
+        if (IsPlayerPedestrian(other))
+        {
+            KontrolEtYaya();
+        }
+
+        // 3) YAPAY ZEKA ARABASI - Durdur
         if (other.CompareTag("AI_Araba"))
         {
-            // AICar referansi yoksa hata vermemesi icin kontrol edelim, 
-            // ama proje yapisinda AICar scripti oldugunu varsayiyoruz.
-            // Eger AICar scripti yoksa bu kisim calismaz.
-            // AICar yapayZeka = other.GetComponent<AICar>();
-            // if (yapayZeka != null) ...
-            
-            // Simdilik sadece Player odakli gidiyoruz, AI mantigi mevcut scriptte kalsin.
+            var aiCar = other.GetComponent<AICar>();
+            if (aiCar != null && bagliTrafikIsigi != null)
+            {
+                bool durmali = bagliTrafikIsigi.suankiDurum == TrafikIsigi.IsikDurumu.Kirmizi ||
+                               bagliTrafikIsigi.suankiDurum == TrafikIsigi.IsikDurumu.Sari;
+                aiCar.TrafikIsigiDurumu(durmali);
+            }
+        }
+    }
+
+    private void OnTriggerStay(Collider other)
+    {
+        // Yaya ışıkta beklerken sürekli kontrol et
+        if (IsPlayerPedestrian(other) && !yayaCezaKesildi)
+        {
+            KontrolEtYaya();
+        }
+        
+        // Araba ışıkta beklerken sürekli kontrol et
+        if (other.CompareTag("PlayerCar") && !arabaCezaKesildi)
+        {
+            KontrolEtAraba();
         }
     }
 
     private void OnTriggerExit(Collider other)
     {
-        // Oyuncu kutudan cikinca tekrar ceza kesilebilsin istiyorsan:
-        if (other.CompareTag("Player"))
+        // Oyuncu arabası çıkınca tekrar ceza kesilebilsin
+        if (other.CompareTag("PlayerCar"))
         {
-            cezaKesildi = false;
+            arabaCezaKesildi = false;
+        }
+
+        // Oyuncu yayası çıkınca tekrar ceza kesilebilsin
+        if (IsPlayerPedestrian(other))
+        {
+            yayaCezaKesildi = false;
+        }
+
+        // AI arabası çıkınca serbest bırak
+        if (other.CompareTag("AI_Araba"))
+        {
+            var aiCar = other.GetComponent<AICar>();
+            if (aiCar != null)
+            {
+                aiCar.TrafikIsigiDurumu(false);
+            }
         }
     }
 
-    private void KontrolEt()
+    private bool IsPlayerPedestrian(Collider other)
+    {
+        var controller = other.GetComponent<PedestrianController>();
+        if (controller != null) return true;
+        
+        controller = other.GetComponentInParent<PedestrianController>();
+        if (controller != null) return true;
+        
+        return false;
+    }
+
+    private void KontrolEtAraba()
     {
         if (bagliTrafikIsigi == null) return;
 
         if (bagliTrafikIsigi.suankiDurum == TrafikIsigi.IsikDurumu.Kirmizi)
         {
-            if (cezaKesildi) return; // spam engelle
-            cezaKesildi = true;
+            if (arabaCezaKesildi) return;
+            arabaCezaKesildi = true;
 
-            // 1) CEZA UYARISI
-            Debug.Log("CEZA! " + cezaMesaji + " -" + cezaPuani);
+            Debug.Log("CEZA! " + arabaCezaMesaji + " -" + arabaCezaPuani);
 
-            // 2) PUAN DUSUR
             if (GameManager.Instance != null)
             {
-                GameManager.Instance.CezaVer(cezaPuani, cezaMesaji);
+                GameManager.Instance.CezaVer(arabaCezaPuani, arabaCezaMesaji);
             }
         }
-        else
+    }
+
+    private void KontrolEtYaya()
+    {
+        if (bagliTrafikIsigi == null) return;
+
+        // Yaya için: Yaya ışığı kırmızıysa (araç ışığı yeşilse) ceza ver
+        // NOT: Genellikle yaya ışığı araç ışığının tersidir
+        // Araç ışığı YEŞİL = Yaya ışığı KIRMIZI (yaya geçmemeli)
+        // Araç ışığı KIRMIZI = Yaya ışığı YEŞİL (yaya geçebilir)
+        
+        if (bagliTrafikIsigi.suankiDurum == TrafikIsigi.IsikDurumu.Yesil ||
+            bagliTrafikIsigi.suankiDurum == TrafikIsigi.IsikDurumu.Sari)
         {
-            Debug.Log("Guvenli gecis.");
+            // Araç ışığı yeşil veya sarı = Yaya geçmemeli
+            if (yayaCezaKesildi) return;
+            yayaCezaKesildi = true;
+
+            Debug.Log("CEZA! " + yayaCezaMesaji + " -" + yayaCezaPuani);
+
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.CezaVer(yayaCezaPuani, yayaCezaMesaji);
+            }
         }
     }
 }

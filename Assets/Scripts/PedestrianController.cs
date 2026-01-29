@@ -1,127 +1,183 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
-[RequireComponent(typeof(CharacterController))]
+/// <summary>
+/// VR uyumlu yaya kontrol scripti.
+/// - Baktığın yöne doğru döner ve yürür
+/// - Hareket ederken yürüme animasyonu oynar
+/// - VR kafa takibi ile senkronize çalışır
+/// </summary>
 public class PedestrianController : MonoBehaviour
 {
-    [Header("Movement Settings")]
-    public float moveSpeed = 3.0f;
-    public float rotationSpeed = 10.0f;
-    public float gravity = 9.81f;
-
-    [Header("References")]
-    public Animator animator;
-    public Transform cameraTransform; // To move relative to camera view
-
-    [Header("Input")]
-    public InputActionProperty moveInputSource;
-
-    private CharacterController characterController;
-    private Vector3 velocity;
-
-    void OnEnable()
-    {
-        if (moveInputSource.action != null)
-            moveInputSource.action.Enable();
-    }
-
-    void OnDisable()
-    {
-        if (moveInputSource.action != null)
-            moveInputSource.action.Disable();
-    }
+    [Header("Hareket Ayarları")]
+    public float moveSpeed = 3f;
+    public float rotationSpeed = 10f;
+    
+    [Header("Referanslar")]
+    public Transform cameraTransform; // VR kamera (Main Camera)
+    
+    private Rigidbody rb;
+    private Animator animator;
+    private bool isMoving = false;
+    
+    // Animator parametreleri
+    private static readonly int SpeedParam = Animator.StringToHash("Speed");
+    private static readonly int IsWalkingParam = Animator.StringToHash("IsWalking");
+    private static readonly int WalkParam = Animator.StringToHash("Walk");
 
     void Start()
     {
-        characterController = GetComponent<CharacterController>();
-        if (animator == null)
-            animator = GetComponentInChildren<Animator>();
+        rb = GetComponent<Rigidbody>();
+        animator = GetComponent<Animator>();
         
-        // If camera transform is not assigned, try to find the Main Camera
-        if (cameraTransform == null && Camera.main != null)
+        // Rigidbody ayarları
+        if (rb != null)
         {
-            cameraTransform = Camera.main.transform;
+            rb.constraints = RigidbodyConstraints.FreezeRotation;
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
+        }
+        
+        // Kamerayı otomatik bul
+        if (cameraTransform == null)
+        {
+            Camera mainCam = Camera.main;
+            if (mainCam != null)
+            {
+                cameraTransform = mainCam.transform;
+            }
         }
     }
 
     void Update()
     {
-        HandleMovement();
+        // Sadece aktifken çalış
+        if (!gameObject.activeInHierarchy) return;
+        
+        // Girişleri al
+        float h = Input.GetAxis("Horizontal");
+        float v = Input.GetAxis("Vertical");
+        
+        Vector3 inputDirection = new Vector3(h, 0f, v);
+        isMoving = inputDirection.sqrMagnitude > 0.01f;
+        
+        // Animasyonu güncelle
+        UpdateAnimation();
     }
 
-    void HandleMovement()
+    void FixedUpdate()
     {
-        Vector2 input = GetInput();
-        Vector3 moveDirection = Vector3.zero;
-
-        // Calculate movement direction relative to camera or world
-        // For third person, usually relative to camera forward (projected on ground)
-        if (cameraTransform != null)
+        if (!gameObject.activeInHierarchy) return;
+        if (rb == null) return;
+        
+        // Girişleri al
+        float h = Input.GetAxis("Horizontal");
+        float v = Input.GetAxis("Vertical");
+        
+        Vector3 inputDirection = new Vector3(h, 0f, v);
+        
+        if (inputDirection.sqrMagnitude > 0.01f)
         {
-            Vector3 camForward = cameraTransform.forward;
-            Vector3 camRight = cameraTransform.right;
-
-            camForward.y = 0;
-            camRight.y = 0;
-            camForward.Normalize();
-            camRight.Normalize();
-
-            moveDirection = (camForward * input.y + camRight * input.x).normalized;
-        }
-        else
-        {
-            moveDirection = new Vector3(input.x, 0, input.y).normalized;
-        }
-
-        // Apply movement
-        if (moveDirection.magnitude >= 0.1f)
-        {
-            // Rotate towards move direction
-            float targetAngle = Mathf.Atan2(moveDirection.x, moveDirection.z) * Mathf.Rad2Deg;
-            Quaternion targetRotation = Quaternion.Euler(0, targetAngle, 0);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-
-            characterController.Move(moveDirection * moveSpeed * Time.deltaTime);
-        }
-
-        // Apply Gravity
-        if (characterController.isGrounded && velocity.y < 0)
-        {
-            velocity.y = -2f;
-        }
-        velocity.y -= gravity * Time.deltaTime;
-        characterController.Move(velocity * Time.deltaTime);
-
-        // Update Animator
-        if (animator != null)
-        {
-            // Assuming the animator has a "Speed" or "Move" parameter
-            // Checking standard naming conventions or just setting magnitude
-            // For now, let's assume a simple "Speed" float parameter
-            animator.SetFloat("Speed", input.magnitude);
+            // Kameranın baktığı yöne göre hareket yönünü hesapla
+            Vector3 moveDirection = GetMoveDirection(inputDirection);
             
-            // Also try "IsWalking" bool if that's what it uses
-            animator.SetBool("IsWalking", input.magnitude > 0.1f);
+            // Karakteri hareket yönüne döndür
+            RotateTowardsDirection(moveDirection);
+            
+            // Hareketi uygula
+            Vector3 movement = moveDirection * moveSpeed * Time.fixedDeltaTime;
+            rb.MovePosition(rb.position + movement);
         }
     }
-
-    Vector2 GetInput()
+    
+    /// <summary>
+    /// Kameranın baktığı yöne göre hareket yönünü hesaplar
+    /// </summary>
+    Vector3 GetMoveDirection(Vector3 input)
     {
-        Vector2 input = Vector2.zero;
-
-        // 1. XR Input
-        if (moveInputSource.action != null && moveInputSource.action.enabled)
+        if (cameraTransform == null)
         {
-            input = moveInputSource.action.ReadValue<Vector2>();
+            return input.normalized;
         }
-
-        // 2. Keyboard Input (Fallback)
-        if (input == Vector2.zero)
+        
+        // Kameranın forward ve right vektörlerini al (Y eksenini sıfırla)
+        Vector3 camForward = cameraTransform.forward;
+        camForward.y = 0;
+        camForward.Normalize();
+        
+        Vector3 camRight = cameraTransform.right;
+        camRight.y = 0;
+        camRight.Normalize();
+        
+        // Girişe göre hareket yönünü hesapla
+        Vector3 moveDirection = (camForward * input.z + camRight * input.x).normalized;
+        
+        return moveDirection;
+    }
+    
+    /// <summary>
+    /// Karakteri belirtilen yöne yumuşak bir şekilde döndürür
+    /// </summary>
+    void RotateTowardsDirection(Vector3 direction)
+    {
+        if (direction.sqrMagnitude < 0.01f) return;
+        
+        // Hedef rotasyonu hesapla
+        Quaternion targetRotation = Quaternion.LookRotation(direction);
+        
+        // Yumuşak dönüş
+        transform.rotation = Quaternion.Slerp(
+            transform.rotation, 
+            targetRotation, 
+            rotationSpeed * Time.fixedDeltaTime
+        );
+    }
+    
+    /// <summary>
+    /// Animator'ı günceller - yürüme/durma animasyonları
+    /// </summary>
+    void UpdateAnimation()
+    {
+        if (animator == null) return;
+        
+        // Farklı parametre isimlerini dene (Animator Controller'a bağlı)
+        // Speed parametresi (float)
+        if (HasParameter(SpeedParam))
         {
-            input.x = Input.GetAxis("Horizontal");
-            input.y = Input.GetAxis("Vertical");
+            animator.SetFloat(SpeedParam, isMoving ? 1f : 0f);
         }
-
-        return input;
+        
+        // IsWalking parametresi (bool)
+        if (HasParameter(IsWalkingParam))
+        {
+            animator.SetBool(IsWalkingParam, isMoving);
+        }
+        
+        // Walk parametresi (bool)
+        if (HasParameter(WalkParam))
+        {
+            animator.SetBool(WalkParam, isMoving);
+        }
+    }
+    
+    /// <summary>
+    /// Animator'da belirtilen parametre var mı kontrol eder
+    /// </summary>
+    bool HasParameter(int paramHash)
+    {
+        if (animator == null) return false;
+        
+        foreach (AnimatorControllerParameter param in animator.parameters)
+        {
+            if (param.nameHash == paramHash)
+                return true;
+        }
+        return false;
+    }
+    
+    /// <summary>
+    /// Kamera referansını ayarlar (ModSecimi tarafından çağrılabilir)
+    /// </summary>
+    public void SetCameraReference(Transform cam)
+    {
+        cameraTransform = cam;
     }
 }

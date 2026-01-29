@@ -2,100 +2,110 @@ using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.XR;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
+
     public static Action<int> OnPuanDegisti;
     public static Action<string> OnCezaYendi;
 
+    [Header("Mode Objects")]
+    public GameObject playerCar;
+    public GameObject pedestrian;
+    [Header("XR")]
+    public GameObject xrOrigin;
+
+
+    [Header("UI")]
+    public GameObject entryPanel;
+    public GameObject cezaUyariText;
+
+    [Header("Game State")]
+    public int toplamPuan = 100;
+    public bool oyunDevamEdiyor = true;
+
+    // ---------------- CAMERA ----------------
+    public enum CameraMode
+    {
+        Car,
+        Pedestrian
+    }
+
+    private Camera mainCam;
+    // private CameraFollow cameraFollow; // ARTIK KULLANILMIYOR, KameraTakip.cs kullanılıyor
+    private TrackedPoseDriver trackedPoseDriver;
+
+    // ---------------- UNITY ----------------
     private void Awake()
     {
         if (Instance != null && Instance != this)
         {
-            Destroy(this);
+            Destroy(gameObject);
+            return;
         }
-        else
-        {
-            Instance = this;
-        }
+
+        Instance = this;
     }
 
-    // OYUN DEGISKENLERI
-    public int toplamPuan = 100;
-    public bool oyunDevamEdiyor = true;
+    private void Start()
+    {
+        mainCam = Camera.main;
+        // cameraFollow = mainCam.GetComponent<CameraFollow>();
+        if (mainCam != null) trackedPoseDriver = mainCam.GetComponent<TrackedPoseDriver>();
 
-    [Header("Mode References")]
-    public GameObject playerCar;
-    public GameObject pedestrian;
-    public GameObject xrOrigin;
-    public XRCameraFollow cameraFollowScript;
+        Time.timeScale = 0;
+        if (entryPanel != null)
+            entryPanel.SetActive(true);
 
-    [Header("UI Panels")]
-    public GameObject entryPanel;
-    public GameObject cezaUyariText; // Ceza yendiginde acilacak text objesi
+        if (playerCar != null) playerCar.SetActive(false);
+        if (pedestrian != null) pedestrian.SetActive(false);
+    }
 
+    // ---------------- MODE SELECTION ----------------
     public void StartCarMode()
     {
+        Time.timeScale = 1;
         if (entryPanel != null) entryPanel.SetActive(false);
 
-        if (playerCar != null)
-        {
-            playerCar.SetActive(true);
-            var carCtrl = playerCar.GetComponent<ArabaKontrol>();
-            if (carCtrl != null) carCtrl.enabled = true;
-        }
+        if (playerCar != null) playerCar.SetActive(true);
+        if (pedestrian != null) pedestrian.SetActive(false);
 
-        if (pedestrian != null)
-        {
-            var pedCtrl = pedestrian.GetComponent<PedestrianController>();
-            if (pedCtrl != null) pedCtrl.enabled = false;
-        }
-
-        if (cameraFollowScript != null && playerCar != null)
-        {
-            cameraFollowScript.target = playerCar.transform;
-            cameraFollowScript.offset = new Vector3(0, 2.5f, -5f); // Car offset (TPS)
-            cameraFollowScript.SnapToTarget();
-        }
+        SetCameraMode(CameraMode.Car);
     }
 
     public void StartPedestrianMode()
     {
+        Time.timeScale = 1;
         if (entryPanel != null) entryPanel.SetActive(false);
 
-        if (playerCar != null)
-        {
-            var carCtrl = playerCar.GetComponent<ArabaKontrol>();
-            if (carCtrl != null) carCtrl.enabled = false;
-        }
+        if (playerCar != null) playerCar.SetActive(false);
+        if (pedestrian != null) pedestrian.SetActive(true);
 
-        /*
-        if (pedestrian != null)
-        {
-            pedestrian.SetActive(true);
-            var pedCtrl = pedestrian.GetComponent<PedestrianController>();
-            if (pedCtrl != null) pedCtrl.enabled = true;
-        }*/
-
-        // FPS Mode Setup for Pedestrian
-        /*
-        if (cameraFollowScript != null && pedestrian != null)
-        {
-            cameraFollowScript.target = pedestrian.transform;
-            // FPS Offset: Sifir (Kafa pozisyonu XR Origin tarafindan ayarlanir)
-            // Eger XR Origin ayakta durma modundaysa, Camera Offset zaten yukseklik verir.
-            cameraFollowScript.offset = Vector3.zero; 
-            cameraFollowScript.SnapToTarget();
-        }*/
-        cameraFollowScript.enabled = false;
-        xrOrigin.transform.position = new Vector3(0, 0, 0);
+        SetCameraMode(CameraMode.Pedestrian);
     }
 
-    // Isim uyumlulugu icin hem CezaVer hem CezaYe tutuyoruz
+    // ---------------- CAMERA LOGIC ----------------
+    void SetCameraMode(CameraMode mode)
+    {
+        // Kamera kontrolü artık ModSecimi.cs ve KameraTakip.cs üzerinden yapılıyor.
+        // Burada sadece TrackedPoseDriver'ı yönetebiliriz gerekirse.
+        
+        if (trackedPoseDriver != null)
+        {
+            // Her iki modda da kafa takibi açık olabilir, 
+            // ancak araba modunda sadece rotasyon, yaya modunda pozisyon+rotasyon istenebilir.
+            // Şimdilik varsayılan olarak açık bırakıyoruz.
+            trackedPoseDriver.enabled = true;
+        }
+    }
+
+    // ---------------- CEZA SISTEMI ----------------
     public void CezaYe(int miktar)
     {
-        CezaVer(miktar, "Kaza/Ihlal");
+        CezaVer(miktar, "Kural İhlali");
     }
 
     public void CezaVer(int cezaMiktari, string sebep)
@@ -105,37 +115,33 @@ public class GameManager : MonoBehaviour
         toplamPuan -= cezaMiktari;
         if (toplamPuan < 0) toplamPuan = 0;
 
-        Debug.Log($"Ceza: {sebep}. Yeni Puan: {toplamPuan}");
+        Debug.Log($"Ceza: {sebep} | Yeni Puan: {toplamPuan}");
 
         OnCezaYendi?.Invoke(sebep);
         OnPuanDegisti?.Invoke(toplamPuan);
 
-        // UI Uyarisini Goster
         if (cezaUyariText != null)
         {
-            StopCoroutine(ShowCezaTextRoutine());
+            StopAllCoroutines();
             StartCoroutine(ShowCezaTextRoutine());
         }
 
         if (toplamPuan <= 0)
-        {
             OyunBitti();
-        }
     }
 
-    private IEnumerator ShowCezaTextRoutine()
+    IEnumerator ShowCezaTextRoutine()
     {
         cezaUyariText.SetActive(true);
-        yield return new WaitForSeconds(5f);
+        yield return new WaitForSeconds(3f);
         cezaUyariText.SetActive(false);
     }
 
     void OyunBitti()
     {
         oyunDevamEdiyor = false;
-        Debug.Log("OYUN BITTI! EHLIYETI KAPTIRDIN.");
-        
-        // Sahneyi Yeniden Yukle
+        Debug.Log("OYUN BITTI");
+
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }

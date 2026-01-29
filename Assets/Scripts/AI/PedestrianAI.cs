@@ -13,32 +13,34 @@ public class PedestrianAI : MonoBehaviour
     private NavMeshAgent agent;
     private Animator animator;
     private bool isWaiting = false;
+    
+    // Animator parametreleri
+    private static readonly int SpeedParam = Animator.StringToHash("Speed");
+    private static readonly int IsWalkingParam = Animator.StringToHash("IsWalking");
 
     void Start()
     {
         agent = GetComponent<NavMeshAgent>();
-        animator = GetComponent<Animator>(); // Root'ta oldugunu varsayiyoruz
+        animator = GetComponent<Animator>();
         if (animator == null) animator = GetComponentInChildren<Animator>();
 
-        // Agent ayarlari (CityPeople icin uygun degerler)
-        agent.speed = Random.Range(1.5f, 2.5f); // Rastgele yurume hizi
+        // Agent ayarları (CityPeople için uygun değerler)
+        agent.speed = Random.Range(1.5f, 2.5f);
         agent.angularSpeed = 120f;
         agent.acceleration = 8f;
         
-        // Ilk hedefe git
+        // İlk hedefe git
         SetNewRandomDestination();
     }
 
     void Update()
     {
+        if (agent == null || !agent.enabled) return;
+        
         // Animator entegrasyonu
-        if (animator != null)
-        {
-            // NavMeshAgent'in anlik hizini Animator'a gonder
-            animator.SetFloat("Speed", agent.velocity.magnitude);
-        }
+        UpdateAnimation();
 
-        // Hedefe vardik mi?
+        // Hedefe vardık mı?
         if (!isWaiting && !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance)
         {
             if (!agent.hasPath || agent.velocity.sqrMagnitude == 0f)
@@ -47,12 +49,44 @@ public class PedestrianAI : MonoBehaviour
             }
         }
     }
+    
+    void UpdateAnimation()
+    {
+        if (animator == null) return;
+        
+        float speed = agent.velocity.magnitude;
+        bool isMoving = speed > 0.1f;
+        
+        // Speed parametresi (float) - bazı animator'lar bunu kullanır
+        if (HasParameter(SpeedParam))
+        {
+            animator.SetFloat(SpeedParam, speed);
+        }
+        
+        // IsWalking parametresi (bool) - bizim oluşturduğumuz animator bunu kullanır
+        if (HasParameter(IsWalkingParam))
+        {
+            animator.SetBool(IsWalkingParam, isMoving);
+        }
+    }
+    
+    bool HasParameter(int paramHash)
+    {
+        if (animator == null || animator.runtimeAnimatorController == null) return false;
+        
+        foreach (AnimatorControllerParameter param in animator.parameters)
+        {
+            if (param.nameHash == paramHash)
+                return true;
+        }
+        return false;
+    }
 
     IEnumerator WaitAndMove()
     {
         isWaiting = true;
         
-        // Rastgele bekleme suresi
+        // Rastgele bekleme süresi
         float waitTime = Random.Range(minWaitTime, maxWaitTime);
         yield return new WaitForSeconds(waitTime);
 
@@ -62,6 +96,8 @@ public class PedestrianAI : MonoBehaviour
 
     void SetNewRandomDestination()
     {
+        if (agent == null || !agent.enabled) return;
+        
         Vector3 newPos = RandomNavSphere(transform.position, wanderRadius, -1);
         agent.SetDestination(newPos);
     }
@@ -72,7 +108,6 @@ public class PedestrianAI : MonoBehaviour
         randDirection += origin;
 
         NavMeshHit navHit;
-        // 10.0f: NavMesh uzerinde gecerli bir nokta bulmak icin tolerans mesafesi
         NavMesh.SamplePosition(randDirection, out navHit, 10.0f, layermask);
 
         return navHit.position;

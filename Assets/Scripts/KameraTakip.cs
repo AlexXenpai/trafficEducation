@@ -1,25 +1,158 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// XR Origin'i (kamera sistemini) araba veya yaya moduna gÃ¶re konumlandÄ±rÄ±r.
+/// Bu script XR Origin objesine eklenir.
+/// </summary>
 public class KameraTakip : MonoBehaviour
 {
-    public Transform target; // Araba
-    public Vector3 offset = new Vector3(0, 5, -8); // Arkadan ve yukarýdan bakýþ
-    public float smoothSpeed = 0.125f;
+    [Header("Hedefler")]
+    public Transform carTarget;
+    public Transform pedestrianTarget;
 
-    void FixedUpdate()
+    [Header("Araba Modu AyarlarÄ±")]
+    public Vector3 carOffset = new Vector3(0, 2.5f, -8f);
+    [Range(0.01f, 1f)]
+    public float positionSmoothTime = 0.15f;
+    [Range(0.01f, 1f)]
+    public float rotationSmoothTime = 0.1f;
+
+    [Header("Yaya Modu AyarlarÄ±")]
+    public Vector3 pedestrianOffset = new Vector3(0, 1.6f, 0); // GÃ¶z seviyesi
+    public bool lockYawToPedestrian = false; // YayanÄ±n yÃ¶nÃ¼ne kilitle
+
+    [Header("Durum")]
+    public bool isCarMode = true;
+
+    // SmoothDamp iÃ§in velocity deÄŸiÅŸkenleri
+    private Vector3 positionVelocity = Vector3.zero;
+    private float rotationVelocity = 0f;
+
+    private bool initialized = false;
+
+    void Start()
     {
-        Vector3 desiredPosition = target.position + target.TransformDirection(offset);
-        // Lerp ile yumuþak geçiþ saðla, titremeyi önler
-        Vector3 smoothedPosition = Vector3.Lerp(transform.position, desiredPosition, smoothSpeed);
-        transform.position = smoothedPosition;
+        if (carTarget != null)
+        {
+            SetCarMode();
+        }
+    }
 
-        // Arabaya bak ama kafayý kilitleme (LookAt kullanma), 
-        // Kullanýcý VR'da kafasýný çevirip etrafa bakabilmeli.
-        // Sadece pozisyonu takip et, rotasyonu kullanýcýya býrak veya çok hafif döndür.
+    void LateUpdate()
+    {
+        if (isCarMode)
+        {
+            if (carTarget == null) return;
+            FollowCar();
+        }
+        else
+        {
+            if (pedestrianTarget == null) return;
+            FollowPedestrian();
+        }
+    }
 
-        // Basitçe aracýn arkasýna dönmesi için:
-        transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.LookRotation(target.forward), smoothSpeed);
+    void FollowCar()
+    {
+        Vector3 targetPosition = carTarget.position + carTarget.TransformDirection(carOffset);
+
+        if (!initialized)
+        {
+            transform.position = targetPosition;
+            
+            Vector3 lookDir = carTarget.position - transform.position;
+            lookDir.y = 0;
+            if (lookDir.sqrMagnitude > 0.001f)
+            {
+                transform.rotation = Quaternion.LookRotation(lookDir);
+            }
+            
+            initialized = true;
+            positionVelocity = Vector3.zero;
+            return;
+        }
+
+        // Pozisyon: SmoothDamp
+        transform.position = Vector3.SmoothDamp(
+            transform.position, 
+            targetPosition, 
+            ref positionVelocity, 
+            positionSmoothTime
+        );
+
+        // Rotasyon: Arabaya bak
+        Vector3 lookDirection = carTarget.position - transform.position;
+        lookDirection.y = 0;
+        
+        if (lookDirection.sqrMagnitude > 0.001f)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(lookDirection);
+            
+            float currentAngle = transform.eulerAngles.y;
+            float targetAngle = targetRotation.eulerAngles.y;
+            
+            float smoothedAngle = Mathf.SmoothDampAngle(
+                currentAngle, 
+                targetAngle, 
+                ref rotationVelocity, 
+                rotationSmoothTime
+            );
+            
+            transform.rotation = Quaternion.Euler(0, smoothedAngle, 0);
+        }
+    }
+
+    void FollowPedestrian()
+    {
+        // Yaya modunda: XR Origin'i yayanÄ±n pozisyonuna taÅŸÄ±
+        // Offset ile gÃ¶z seviyesine getir
+        Vector3 targetPosition = pedestrianTarget.position + pedestrianOffset;
+        
+        // Direkt pozisyon ata (1. ÅŸahÄ±s iÃ§in smooth gerekmiyor)
+        transform.position = targetPosition;
+        
+        // Rotasyonu serbest bÄ±rak - VR'da kullanÄ±cÄ± kafasÄ±nÄ± Ã§evirebilir
+        // Sadece istenirse yayanÄ±n yÃ¶nÃ¼ne kilitle
+        if (lockYawToPedestrian)
+        {
+            transform.rotation = Quaternion.Euler(0, pedestrianTarget.eulerAngles.y, 0);
+        }
+    }
+
+    public void SetCarMode()
+    {
+        isCarMode = true;
+        initialized = false;
+        positionVelocity = Vector3.zero;
+        rotationVelocity = 0f;
+        Debug.Log("Kamera: Araba Moduna geÃ§ildi");
+    }
+
+    public void SetPedestrianMode()
+    {
+        isCarMode = false;
+        initialized = false;
+        
+        // Yaya moduna geÃ§erken hemen konumlan
+        if (pedestrianTarget != null)
+        {
+            transform.position = pedestrianTarget.position + pedestrianOffset;
+        }
+        
+        Debug.Log("Kamera: Yaya Moduna geÃ§ildi");
+    }
+
+    public void SetMode(bool carMode)
+    {
+        if (carMode)
+            SetCarMode();
+        else
+            SetPedestrianMode();
+    }
+
+    public void SetTargets(Transform car, Transform pedestrian)
+    {
+        carTarget = car;
+        pedestrianTarget = pedestrian;
     }
 }

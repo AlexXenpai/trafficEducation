@@ -7,6 +7,8 @@ TagManager:
   - AI_Araba
   - Car
   - TrafficLight
+  - Pedestrian
+  - PlayerCar
   layers:
   - Default
   - TransparentFX
