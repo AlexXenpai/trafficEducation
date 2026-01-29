@@ -16,6 +16,10 @@ GameObject:
   - component: {fileID: 2312350642294396959}
   - component: {fileID: 8972223621979400478}
   - component: {fileID: 3745422661352550261}
+  - component: {fileID: 5555732033593872936}
+  - component: {fileID: -2084198504928277177}
+  - component: {fileID: -25061208139197412}
+  - component: {fileID: -5717953286216057}
   m_Layer: 0
   m_Name: sptp_road_segment_06
   m_TagString: Untagged
@@ -184,3 +188,71 @@ MonoBehaviour:
   m_Center: {x: 1, y: 0, z: 2.5}
   m_Area: 1
   m_AffectedAgents: 00000000
+--- !u!114 &5555732033593872936
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 186210}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35e95dc5ff2b64380880dd7ac5922847, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshModifierVolume
+  m_SerializedVersion: 0
+  m_Size: {x: 15, y: 1, z: 3}
+  m_Center: {x: -0.5, y: 0, z: 6.5}
+  m_Area: 4
+  m_AffectedAgents: f46d2d5800000000
+--- !u!114 &-2084198504928277177
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 186210}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35e95dc5ff2b64380880dd7ac5922847, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshModifierVolume
+  m_SerializedVersion: 0
+  m_Size: {x: 3, y: 1, z: 15}
+  m_Center: {x: -6.5, y: 0, z: 0.5}
+  m_Area: 4
+  m_AffectedAgents: f46d2d5800000000
+--- !u!114 &-25061208139197412
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 186210}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35e95dc5ff2b64380880dd7ac5922847, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshModifierVolume
+  m_SerializedVersion: 0
+  m_Size: {x: 5, y: 1, z: 12}
+  m_Center: {x: -2.5, y: 0, z: -1}
+  m_Area: 3
+  m_AffectedAgents: 00000000f46d2d58
+--- !u!114 &-5717953286216057
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 186210}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35e95dc5ff2b64380880dd7ac5922847, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshModifierVolume
+  m_SerializedVersion: 0
+  m_Size: {x: 12, y: 1, z: 5}
+  m_Center: {x: 1, y: 0, z: 2.5}
+  m_Area: 3
+  m_AffectedAgents: 00000000f46d2d58

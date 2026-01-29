@@ -1,5 +1,6 @@
+using System.Security.Cryptography;
 using UnityEngine;
-
+using UnityEngine.AI; // NavMesh için gerekli
 /// <summary>
 /// Yaya ceza sistemi.
 /// SidewalkTrigger içindeyse ASLA ceza vermez.
@@ -25,7 +26,20 @@ public class PedestrianPenaltySystem : MonoBehaviour
     
     // En yakın trafik ışığı
     private TrafikIsigi nearestTrafficLight = null;
+    private int roadAreaIndex;
+    private int sidewalkAreaIndex;
 
+    void Start()
+    {
+        // Area indexlerini isimle alıyoruz (Hata payı sıfır)
+        roadAreaIndex = NavMesh.GetAreaFromName("Road");
+        sidewalkAreaIndex = NavMesh.GetAreaFromName("Sidewalk");
+
+        if (roadAreaIndex == -1 || sidewalkAreaIndex == -1)
+        {
+            Debug.LogError("DİKKAT: Navigation Areas sekmesinde 'Road' veya 'Sidewalk' tanımlı değil!");
+        }
+    }
     void Update()
     {
         if (Time.time < nextCheckTime) return;
@@ -34,57 +48,68 @@ public class PedestrianPenaltySystem : MonoBehaviour
         CheckGround();
         CheckPenalties();
     }
-    
+
     void CheckGround()
     {
+        // Her kontrolde durumları temizle ki eski verilerle ceza kesilmesin
         isOnRoad = false;
         nearestTrafficLight = null;
-        
-        // Yaya geçidi kontrolü
-        Vector3 checkPos = transform.position + Vector3.up * 0.5f;
-        Collider[] triggers = Physics.OverlapSphere(checkPos, 1.5f);
-        bool isOnCrosswalk = false;
-        
+
+        // VR için daha güvenli bir sorgu noktası (yere yakın)
+        Vector3 checkPos = transform.position;
+
+        NavMeshHit navHit;
+        // 5.0f yapıyoruz ki VR yüksekliği sorun çıkarmasın
+        if (NavMesh.SamplePosition(checkPos, out navHit, 5.0f, NavMesh.AllAreas))
+        {
+            int currentAreaIndex = GetAreaIndexFromMask(navHit.mask);
+
+            if (currentAreaIndex == roadAreaIndex)
+            {
+                // ÖNEMLİ: Burada yaya geçidi kontrolünü de iç içe yapmalısın.
+                // Çünkü hem yolda hem yaya geçidinde olabilirsin.
+                bool onCrosswalk = CheckCrosswalk();
+
+                if (!onCrosswalk)
+                {
+                    isOnRoad = true;
+                    if (showDebug) Debug.Log("<color=red>Yol Cezası Aktif</color>");
+                }
+            }
+            else if (currentAreaIndex == sidewalkAreaIndex)
+            {
+                isOnRoad = false;
+                if (showDebug) Debug.Log("<color=green>Kaldırım Güvenli</color>");
+            }
+        }
+    }
+
+    // Yaya geçidi kontrolünü ayır ki kafan karışmasın
+    bool CheckCrosswalk()
+    {
+        Collider[] triggers = Physics.OverlapSphere(transform.position, 1.5f);
         foreach (var col in triggers)
         {
             PedestrianCrossZone crossZone = col.GetComponent<PedestrianCrossZone>();
             if (crossZone != null)
             {
-                isOnCrosswalk = true;
-                if (crossZone.bagliTrafikIsigi != null)
-                {
-                    nearestTrafficLight = crossZone.bagliTrafikIsigi;
-                }
+                nearestTrafficLight = crossZone.bagliTrafikIsigi;
+                return true;
             }
         }
-        
-        // Yaya geçidindeyse yol kontrolü yapma
-        if (isOnCrosswalk) return;
-        
-        // Zemin kontrolü - Raycast ile (QueryTriggerInteraction.Ignore ile trigger'ları atla)
-        Vector3 rayStart = transform.position + Vector3.up * 1f;
-        RaycastHit hit;
-        
-        if (Physics.Raycast(rayStart, Vector3.down, out hit, 3f, ~0, QueryTriggerInteraction.Ignore))
-        {
-            string hitName = hit.collider.gameObject.name.ToLower();
-            string parentName = hit.collider.transform.parent != null 
-                ? hit.collider.transform.parent.name.ToLower() : "";
-            
-            // YOL kontrolü
-            if (hitName.Contains("road") && parentName.Contains("roads"))
-            {
-                isOnRoad = true;
-            }
-            
-            if (showDebug)
-            {
-                bool onSidewalk = SidewalkTrigger.IsPlayerOnSidewalk();
-                Debug.Log($"[Pedestrian] Kaldırım:{onSidewalk} Yol:{isOnRoad} | Hit:{hitName}");
-            }
-        }
+        return false;
     }
-    
+
+    // Bitmask'ı düz Index'e çeviren yardımcı fonksiyon
+    int GetAreaIndexFromMask(int mask)
+    {
+        for (int i = 0; i < 32; i++)
+        {
+            if ((mask & (1 << i)) != 0) return i;
+        }
+        return -1;
+    }
+
     void CheckPenalties()
     {
         // ÖNCELİK 1: Kaldırım trigger'ı içindeyse ASLA ceza verme
