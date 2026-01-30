@@ -71,7 +71,9 @@ public class CollisionPenalty : MonoBehaviour
         
         if (isBuilding)
         {
-            ApplyPenalty(buildingPenalty, buildingMessage);
+            // Yaya modunda bina çarpması: ceza/uyarı yok
+            if (!isPlayerPedestrian)
+                ApplyPenalty(buildingPenalty, buildingMessage);
             return;
         }
 
@@ -104,11 +106,8 @@ public class CollisionPenalty : MonoBehaviour
                 // Araba ile yayaya çarpma - 20 puan
                 ApplyPenalty(pedestrianPenalty, pedestrianMessage);
             }
-            else if (isPlayerPedestrian)
-            {
-                // Yaya ile yayaya çarpma - 10 puan
-                ApplyPenalty(hitOtherPedestrianPenalty, hitOtherPedestrianMessage);
-            }
+
+            // Yaya modunda yayaya çarpma: ceza/uyarı yok
         }
     }
     

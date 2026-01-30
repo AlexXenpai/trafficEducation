@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.XR;
+using TMPro;
 
 public class GameManager : MonoBehaviour
 {
@@ -22,6 +23,13 @@ public class GameManager : MonoBehaviour
     [Header("UI")]
     public GameObject entryPanel;
     public GameObject cezaUyariText;
+
+    [Header("Game Over UI")]
+    public CanvasGroup gameOverGroup;
+    public TextMeshProUGUI gameOverText;
+    public float gameOverShowSeconds = 2.5f;
+
+    bool gameOverStarted;
 
     [Header("Game State")]
     public int toplamPuan = 100;
@@ -74,6 +82,15 @@ public class GameManager : MonoBehaviour
         if (pedestrian != null) pedestrian.SetActive(false);
 
         SetCameraMode(CameraMode.Car);
+
+        UIManager.Instance?.ShowModeInfo(
+            "ARABA MODU - DİKKAT\n" +
+            "• Binaya çarpma: -10\n" +
+            "• Arabaya çarpma: -10\n" +
+            "• Yayaya çarpma: -20\n" +
+            "• Yol dışına çıkma: -10 (hemen) + 5 saniyede bir tekrar\n" +
+            "Kurallara dikkat edin ve puan kaybetmeyin!"
+        );
     }
 
     public void StartPedestrianMode()
@@ -85,6 +102,13 @@ public class GameManager : MonoBehaviour
         if (pedestrian != null) pedestrian.SetActive(true);
 
         SetCameraMode(CameraMode.Pedestrian);
+
+        UIManager.Instance?.ShowModeInfo(
+            "YAYA MODU - DİKKAT\n" +
+            "• Yaya geçidi dışından karşıya geçme: -20\n" +
+            "• Kırmızı ışıkta karşıya geçme: -15\n" +
+            "Kurallara dikkat edin ve puan kaybetmeyin!"
+        );
     }
 
     // ---------------- CAMERA LOGIC ----------------
@@ -139,9 +163,38 @@ public class GameManager : MonoBehaviour
 
     void OyunBitti()
     {
+        if (gameOverStarted) return;
+        gameOverStarted = true;
+
         oyunDevamEdiyor = false;
         Debug.Log("OYUN BITTI");
 
+        StartCoroutine(GameOverRoutine());
+    }
+
+    IEnumerator GameOverRoutine()
+    {
+        // Ceza yazısı coroutine'ini iptal etme (StopAllCoroutines) gibi yan etkiler istemiyoruz.
+        // Bu yüzden ayrı coroutine.
+
+        // Ekranı göster
+        if (gameOverText != null)
+            gameOverText.text = "Simülasyon başarısız!\nTekrar deneyin.";
+
+        if (gameOverGroup != null)
+        {
+            gameOverGroup.alpha = 1f;
+            gameOverGroup.interactable = false;
+            gameOverGroup.blocksRaycasts = true;
+        }
+
+        // Oyunu durdur
+        Time.timeScale = 0;
+
+        // TimeScale 0 iken de bekleyebilmek için realtime kullan
+        yield return new WaitForSecondsRealtime(gameOverShowSeconds);
+
+        // Başlangıç ekranına dönmek için sahneyi yeniden yükle
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }

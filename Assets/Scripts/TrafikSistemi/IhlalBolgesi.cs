@@ -29,10 +29,8 @@ public class IhlalBolgesi : MonoBehaviour
         }
 
         // 2) OYUNCU YAYASI
-        if (IsPlayerPedestrian(other))
-        {
-            KontrolEtYaya();
-        }
+        // Yaya kırmızı ışık cezası PedestrianPenaltySystem tarafından yönetiliyor.
+        // Burada (IhlalBolgesi) tekrar ceza kesmeyelim.
 
         // 3) YAPAY ZEKA ARABASI - Durdur
         if (other.CompareTag("AI_Araba"))
@@ -49,12 +47,9 @@ public class IhlalBolgesi : MonoBehaviour
 
     private void OnTriggerStay(Collider other)
     {
-        // Yaya ışıkta beklerken sürekli kontrol et
-        if (IsPlayerPedestrian(other) && !yayaCezaKesildi)
-        {
-            KontrolEtYaya();
-        }
-        
+        // Yaya kırmızı ışık cezası PedestrianPenaltySystem tarafından yönetiliyor.
+        // Burada (IhlalBolgesi) tekrar ceza kesmeyelim.
+
         // Araba ışıkta beklerken sürekli kontrol et
         if (other.CompareTag("PlayerCar") && !arabaCezaKesildi)
         {
@@ -70,11 +65,7 @@ public class IhlalBolgesi : MonoBehaviour
             arabaCezaKesildi = false;
         }
 
-        // Oyuncu yayası çıkınca tekrar ceza kesilebilsin
-        if (IsPlayerPedestrian(other))
-        {
-            yayaCezaKesildi = false;
-        }
+        // Oyuncu yayası için burada ceza yönetimi yok.
 
         // AI arabası çıkınca serbest bırak
         if (other.CompareTag("AI_Araba"))
@@ -116,28 +107,5 @@ public class IhlalBolgesi : MonoBehaviour
         }
     }
 
-    private void KontrolEtYaya()
-    {
-        if (bagliTrafikIsigi == null) return;
 
-        // Yaya için: Yaya ışığı kırmızıysa (araç ışığı yeşilse) ceza ver
-        // NOT: Genellikle yaya ışığı araç ışığının tersidir
-        // Araç ışığı YEŞİL = Yaya ışığı KIRMIZI (yaya geçmemeli)
-        // Araç ışığı KIRMIZI = Yaya ışığı YEŞİL (yaya geçebilir)
-        
-        if (bagliTrafikIsigi.suankiDurum == TrafikIsigi.IsikDurumu.Yesil ||
-            bagliTrafikIsigi.suankiDurum == TrafikIsigi.IsikDurumu.Sari)
-        {
-            // Araç ışığı yeşil veya sarı = Yaya geçmemeli
-            if (yayaCezaKesildi) return;
-            yayaCezaKesildi = true;
-
-            Debug.Log("CEZA! " + yayaCezaMesaji + " -" + yayaCezaPuani);
-
-            if (GameManager.Instance != null)
-            {
-                GameManager.Instance.CezaVer(yayaCezaPuani, yayaCezaMesaji);
-            }
-        }
-    }
 }

@@ -1,23 +1,42 @@
 using UnityEngine;
-using TMPro; // TextMeshPro kullanmak için þart
+using TMPro; // TextMeshPro kullanmak iï¿½in ï¿½art
 using System.Collections;
 
 public class UIManager : MonoBehaviour
 {
-    [Header("UI Elemanlarý")]
+    public static UIManager Instance { get; private set; }
+
+    [Header("UI Elemanlarï¿½")]
     public TextMeshProUGUI puanText;
     public TextMeshProUGUI cezaUyariText;
 
-    // Script aktif olduðunda dinlemeye baþla
+    [Header("Mod Bilgilendirme")]
+    public CanvasGroup modeInfoGroup;
+    public TextMeshProUGUI modeInfoText;
+    public float modeInfoDuration = 6f;
+
+    Coroutine modeInfoCoroutine;
+
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+    }
+
+    // Script aktif olduï¿½unda dinlemeye baï¿½la
     private void OnEnable()
     {
-        // GameManager'ýn olaylarýna abone oluyoruz
+        // GameManager'ï¿½n olaylarï¿½na abone oluyoruz
         GameManager.OnPuanDegisti += PuanGuncelle;
         GameManager.OnCezaYendi += CezayiGoster;
     }
 
-    // Script pasif olduðunda (veya obje yok olduðunda) dinlemeyi býrak
-    // BUNU YAPMAZSAN HAFIZA SIZINTISI (MEMORY LEAK) OLUR. ÇOK ÖNEMLÝ.
+    // Script pasif olduï¿½unda (veya obje yok olduï¿½unda) dinlemeyi bï¿½rak
+    // BUNU YAPMAZSAN HAFIZA SIZINTISI (MEMORY LEAK) OLUR. ï¿½OK ï¿½NEMLï¿½.
     private void OnDisable()
     {
         GameManager.OnPuanDegisti -= PuanGuncelle;
@@ -26,23 +45,25 @@ public class UIManager : MonoBehaviour
 
     void Start()
     {
-        // Oyun baþlar baþlamaz mevcut puaný ekrana yaz
+        // Oyun baï¿½lar baï¿½lamaz mevcut puanï¿½ ekrana yaz
         PuanGuncelle(GameManager.Instance.toplamPuan);
-        cezaUyariText.text = ""; // Baþlangýçta uyarý olmasýn
+        cezaUyariText.text = ""; // Baï¿½langï¿½ï¿½ta uyarï¿½ olmasï¿½n
+
+        HideModeInfoImmediate();
     }
 
-    // GameManager "OnPuanDegisti" diye baðýrýnca bu çalýþacak
+    // GameManager "OnPuanDegisti" diye baï¿½ï¿½rï¿½nca bu ï¿½alï¿½ï¿½acak
     void PuanGuncelle(int yeniPuan)
     {
         puanText.text = "Puan: " + yeniPuan.ToString();
     }
 
-    // GameManager "OnCezaYendi" diye baðýrýnca bu çalýþacak
+    // GameManager "OnCezaYendi" diye baï¿½ï¿½rï¿½nca bu ï¿½alï¿½ï¿½acak
     void CezayiGoster(string sebep)
     {
-        // Önce durdur ki üst üste binmesin
+        // ï¿½nce durdur ki ï¿½st ï¿½ste binmesin
         StopAllCoroutines();
-        // Uyarýyý gösterip 2 saniye sonra gizleyen coroutine'i baþlat
+        // Uyarï¿½yï¿½ gï¿½sterip 2 saniye sonra gizleyen coroutine'i baï¿½lat
         StartCoroutine(UyariGosterGizle("CEZA! " + sebep));
     }
 
@@ -55,5 +76,36 @@ public class UIManager : MonoBehaviour
 
         cezaUyariText.text = "";
         cezaUyariText.gameObject.SetActive(false);
+    }
+
+    public void ShowModeInfo(string message)
+    {
+        if (modeInfoGroup == null || modeInfoText == null) return;
+
+        if (modeInfoCoroutine != null)
+            StopCoroutine(modeInfoCoroutine);
+
+        modeInfoText.text = message;
+        modeInfoGroup.alpha = 1f;
+        modeInfoGroup.interactable = false;
+        modeInfoGroup.blocksRaycasts = false;
+
+        modeInfoCoroutine = StartCoroutine(ModeInfoRoutine());
+    }
+
+    IEnumerator ModeInfoRoutine()
+    {
+        yield return new WaitForSeconds(modeInfoDuration);
+        HideModeInfoImmediate();
+        modeInfoCoroutine = null;
+    }
+
+    void HideModeInfoImmediate()
+    {
+        if (modeInfoGroup == null) return;
+        modeInfoGroup.alpha = 0f;
+        modeInfoGroup.interactable = false;
+        modeInfoGroup.blocksRaycasts = false;
+        if (modeInfoText != null) modeInfoText.text = "";
     }
 }

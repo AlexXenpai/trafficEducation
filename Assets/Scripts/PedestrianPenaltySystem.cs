@@ -20,6 +20,10 @@ public class PedestrianPenaltySystem : MonoBehaviour
     private float lastRedLightPenaltyTime = -100f;
     private float checkInterval = 0.5f;
     private float nextCheckTime = 0f;
+
+    // Hareket kontrolü (ışıkta bekleyen yayaya ceza kesmemek için)
+    private Vector3 lastPosition;
+    public float minMoveSpeedForRedLightPenalty = 0.25f; // m/s
     
     // Yolda mı?
     private bool isOnRoad = false;
@@ -39,14 +43,18 @@ public class PedestrianPenaltySystem : MonoBehaviour
         {
             Debug.LogError("DİKKAT: Navigation Areas sekmesinde 'Road' veya 'Sidewalk' tanımlı değil!");
         }
+
+        lastPosition = transform.position;
     }
     void Update()
     {
         if (Time.time < nextCheckTime) return;
         nextCheckTime = Time.time + checkInterval;
-        
+
         CheckGround();
         CheckPenalties();
+
+        lastPosition = transform.position;
     }
 
     void CheckGround()
@@ -144,9 +152,14 @@ public class PedestrianPenaltySystem : MonoBehaviour
         
         if (nearestTrafficLight == null) return;
         
-        if (nearestTrafficLight.suankiDurum == TrafikIsigi.IsikDurumu.Yesil ||
-            nearestTrafficLight.suankiDurum == TrafikIsigi.IsikDurumu.Sari)
+        // Not: Bu sistem "araç ışığı"na bakıyor. Araç ışığı YEŞİL ise yaya ışığı KIRMIZI kabul edilir.
+        // Hatalı/çok agresif cezayı azaltmak için SARI'da ceza kesmiyoruz.
+        if (nearestTrafficLight.suankiDurum == TrafikIsigi.IsikDurumu.Yesil)
         {
+            // Yaya gerçekten geçiyorsa ceza kes (ışıkta bekleyen yayaya ceza yok)
+            float speed = Vector3.Distance(transform.position, lastPosition) / checkInterval;
+            if (speed < minMoveSpeedForRedLightPenalty) return;
+
             if (Time.time - lastRedLightPenaltyTime >= penaltyCooldown)
             {
                 GiveRedLightPenalty();
