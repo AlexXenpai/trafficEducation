@@ -1,14 +1,22 @@
 using UnityEngine;
-using TMPro; // TextMeshPro kullanmak i�in �art
+using TMPro;
 using System.Collections;
+using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 public class UIManager : MonoBehaviour
 {
     public static UIManager Instance { get; private set; }
 
-    [Header("UI Elemanlar�")]
+    [Header("UI Elemanlar")]
     public TextMeshProUGUI puanText;
+    public TextMeshProUGUI timerText;
     public TextMeshProUGUI cezaUyariText;
+
+    [Header("Summary UI")]
+    public GameObject summaryPanel;
+    public TextMeshProUGUI summaryScoreText;
+    public TextMeshProUGUI summaryMistakesText;
 
     [Header("Mod Bilgilendirme")]
     public CanvasGroup modeInfoGroup;
@@ -27,43 +35,46 @@ public class UIManager : MonoBehaviour
         Instance = this;
     }
 
-    // Script aktif oldu�unda dinlemeye ba�la
+    // Script aktif oldugunda dinlemeye basla
     private void OnEnable()
     {
-        // GameManager'�n olaylar�na abone oluyoruz
+        // GameManager'in olaylarina abone oluyoruz
         GameManager.OnPuanDegisti += PuanGuncelle;
         GameManager.OnCezaYendi += CezayiGoster;
+        GameManager.OnTimerTick += UpdateTimer;
+        GameManager.OnGameSuccess += ShowSummary;
     }
 
-    // Script pasif oldu�unda (veya obje yok oldu�unda) dinlemeyi b�rak
-    // BUNU YAPMAZSAN HAFIZA SIZINTISI (MEMORY LEAK) OLUR. �OK �NEML�.
+    // Script pasif oldugunda (veya obje yok oldugunda) dinlemeyi birak
     private void OnDisable()
     {
         GameManager.OnPuanDegisti -= PuanGuncelle;
         GameManager.OnCezaYendi -= CezayiGoster;
+        GameManager.OnTimerTick -= UpdateTimer;
+        GameManager.OnGameSuccess -= ShowSummary;
     }
 
     void Start()
     {
-        // Oyun ba�lar ba�lamaz mevcut puan� ekrana yaz
+        // Oyun baslar baslamaz mevcut puani ekrana yaz
         PuanGuncelle(GameManager.Instance.toplamPuan);
-        cezaUyariText.text = ""; // Ba�lang��ta uyar� olmas�n
+        cezaUyariText.text = ""; // Baslangicta uyari olmasin
 
         HideModeInfoImmediate();
     }
 
-    // GameManager "OnPuanDegisti" diye ba��r�nca bu �al��acak
+    // GameManager "OnPuanDegisti" diye bagirinca bu calisacak
     void PuanGuncelle(int yeniPuan)
     {
         puanText.text = "Puan: " + yeniPuan.ToString();
     }
 
-    // GameManager "OnCezaYendi" diye ba��r�nca bu �al��acak
+    // GameManager "OnCezaYendi" diye bagirinca bu calisacak
     void CezayiGoster(string sebep)
     {
-        // �nce durdur ki �st �ste binmesin
+        // Once durdur ki ust uste binmesin
         StopAllCoroutines();
-        // Uyar�y� g�sterip 2 saniye sonra gizleyen coroutine'i ba�lat
+        // Uyariyi gosterip 2 saniye sonra gizleyen coroutine'i baslat
         StartCoroutine(UyariGosterGizle("CEZA! " + sebep));
     }
 
@@ -107,5 +118,42 @@ public class UIManager : MonoBehaviour
         modeInfoGroup.interactable = false;
         modeInfoGroup.blocksRaycasts = false;
         if (modeInfoText != null) modeInfoText.text = "";
+    }
+
+    void UpdateTimer(float time)
+    {
+        if (timerText != null)
+        {
+            int minutes = Mathf.FloorToInt(time / 60F);
+            int seconds = Mathf.FloorToInt(time - minutes * 60);
+            timerText.text = string.Format("{0:0}:{1:00}", minutes, seconds);
+        }
+    }
+
+    void ShowSummary(int score, List<string> mistakes)
+    {
+        if (summaryPanel != null)
+        {
+            summaryPanel.SetActive(true);
+            if (summaryScoreText != null)
+                summaryScoreText.text = "Puan: " + score;
+            
+            if (summaryMistakesText != null)
+            {
+                if (mistakes.Count == 0)
+                {
+                    summaryMistakesText.text = "Hata Yok! Tebrikler.";
+                }
+                else
+                {
+                    summaryMistakesText.text = string.Join("\n", mistakes);
+                }
+            }
+        }
+    }
+
+    public void RestartGame()
+    {
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }

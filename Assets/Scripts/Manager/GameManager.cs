@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.InputSystem;
@@ -12,6 +13,13 @@ public class GameManager : MonoBehaviour
 
     public static Action<int> OnPuanDegisti;
     public static Action<string> OnCezaYendi;
+    public static Action<float> OnTimerTick;
+    public static Action<int, List<string>> OnGameSuccess;
+
+    [Header("Game Settings")]
+    public float gameDuration = 60f;
+    private float currentTimer;
+    public List<string> mistakesLog = new List<string>();
 
     [Header("Mode Objects")]
     public GameObject playerCar;
@@ -65,11 +73,30 @@ public class GameManager : MonoBehaviour
         if (mainCam != null) trackedPoseDriver = mainCam.GetComponent<TrackedPoseDriver>();
 
         Time.timeScale = 0;
+        currentTimer = gameDuration;
+        mistakesLog.Clear();
+
         if (entryPanel != null)
             entryPanel.SetActive(true);
 
         if (playerCar != null) playerCar.SetActive(false);
         if (pedestrian != null) pedestrian.SetActive(false);
+    }
+
+    private void Update()
+    {
+        if (oyunDevamEdiyor)
+        {
+            currentTimer -= Time.deltaTime;
+            if (currentTimer < 0) currentTimer = 0;
+            
+            OnTimerTick?.Invoke(currentTimer);
+
+            if (currentTimer <= 0)
+            {
+                GameSuccess();
+            }
+        }
     }
 
     // ---------------- MODE SELECTION ----------------
@@ -88,6 +115,7 @@ public class GameManager : MonoBehaviour
             "• Binaya çarpma: -10\n" +
             "• Arabaya çarpma: -10\n" +
             "• Yayaya çarpma: -20\n" +
+            "• Sinyal vermeden dönüş: -10\n" +
             "• Yol dışına çıkma: -10 (hemen) + 5 saniyede bir tekrar\n" +
             "Kurallara dikkat edin ve puan kaybetmeyin!"
         );
@@ -139,6 +167,8 @@ public class GameManager : MonoBehaviour
         toplamPuan -= cezaMiktari;
         if (toplamPuan < 0) toplamPuan = 0;
 
+        mistakesLog.Add($"{sebep}: -{cezaMiktari} Puan");
+
         Debug.Log($"Ceza: {sebep} | Yeni Puan: {toplamPuan}");
 
         OnCezaYendi?.Invoke(sebep);
@@ -170,6 +200,20 @@ public class GameManager : MonoBehaviour
         Debug.Log("OYUN BITTI");
 
         StartCoroutine(GameOverRoutine());
+    }
+
+    void GameSuccess()
+    {
+        if (gameOverStarted) return;
+        gameOverStarted = true;
+
+        oyunDevamEdiyor = false;
+        Debug.Log("SIMULASYON BASARIYLA TAMAMLANDI");
+
+        OnGameSuccess?.Invoke(toplamPuan, mistakesLog);
+        
+        // Stop time
+        Time.timeScale = 0;
     }
 
     IEnumerator GameOverRoutine()

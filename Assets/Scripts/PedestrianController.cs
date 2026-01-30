@@ -47,17 +47,37 @@ public class PedestrianController : MonoBehaviour
         }
     }
 
+    // VR Input
+    public UnityEngine.InputSystem.InputActionProperty moveInput;
+
+    void OnEnable()
+    {
+        if (moveInput.action != null) moveInput.action.Enable();
+    }
+
+    void OnDisable()
+    {
+        if (moveInput.action != null) moveInput.action.Disable();
+    }
+
     void Update()
     {
         // Sadece aktifken çalış
         if (!gameObject.activeInHierarchy) return;
         
-        // Girişleri al
-        float h = Input.GetAxis("Horizontal");
-        float v = Input.GetAxis("Vertical");
+        Vector2 input = Vector2.zero;
+        if (moveInput.action != null)
+        {
+            input = moveInput.action.ReadValue<Vector2>();
+        }
+        else
+        {
+            // Fallback to legacy input if action is not set
+            input.x = Input.GetAxis("Horizontal");
+            input.y = Input.GetAxis("Vertical");
+        }
         
-        Vector3 inputDirection = new Vector3(h, 0f, v);
-        isMoving = inputDirection.sqrMagnitude > 0.01f;
+        isMoving = input.sqrMagnitude > 0.01f;
         
         // Animasyonu güncelle
         UpdateAnimation();
@@ -68,11 +88,18 @@ public class PedestrianController : MonoBehaviour
         if (!gameObject.activeInHierarchy) return;
         if (rb == null) return;
         
-        // Girişleri al
-        float h = Input.GetAxis("Horizontal");
-        float v = Input.GetAxis("Vertical");
+        Vector2 input = Vector2.zero;
+        if (moveInput.action != null)
+        {
+            input = moveInput.action.ReadValue<Vector2>();
+        }
+        else
+        {
+            input.x = Input.GetAxis("Horizontal");
+            input.y = Input.GetAxis("Vertical");
+        }
         
-        Vector3 inputDirection = new Vector3(h, 0f, v);
+        Vector3 inputDirection = new Vector3(input.x, 0f, input.y);
         
         if (inputDirection.sqrMagnitude > 0.01f)
         {
