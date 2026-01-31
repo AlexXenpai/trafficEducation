@@ -77,20 +77,9 @@ public class TrafikIsigi : MonoBehaviour
         }
 
         // 2. FİZİKSEL GÜNCELLEME (İhlal Bölgesi Kontrolü)
-        if (ihlalBolgesiObjesi != null)
-        {
-            // Eğer ışık KIRMIZI veya SARI ise engel AKTİF olsun (Araba çarpsın ve dursun).
-            // Sadece YEŞİL olduğunda engel kalksın.
-            if (durum == IsikDurumu.Kirmizi || durum == IsikDurumu.Sari)
-            {
-                ihlalBolgesiObjesi.SetActive(true);
-            }
-            else // Durum Yeşil ise
-            {
-                ihlalBolgesiObjesi.SetActive(false);
-            }
-        }
-        else
+        // NOT: Obje disable edilirse OnTriggerExit çalışmaz ve arabalar sonsuza kadar durur.
+        // Bu yüzden objeyi kapatmıyoruz, sadece IhlalBolgesi scripti üzerinden mantığı yönetiyoruz.
+        if (ihlalBolgesiObjesi == null)
         {
             Debug.LogWarning("TrafikIsigi: Ihlal Bolgesi Objesi atanmamış! Arabalar durmaz.");
         }

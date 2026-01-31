@@ -88,6 +88,7 @@ public class PedestrianController : MonoBehaviour
         if (!gameObject.activeInHierarchy) return;
         if (rb == null) return;
         
+        // 1. Hareket (Joystick)
         Vector2 input = Vector2.zero;
         if (moveInput.action != null)
         {
@@ -106,12 +107,26 @@ public class PedestrianController : MonoBehaviour
             // Kameranın baktığı yöne göre hareket yönünü hesapla
             Vector3 moveDirection = GetMoveDirection(inputDirection);
             
-            // Karakteri hareket yönüne döndür
-            RotateTowardsDirection(moveDirection);
+            // Karakteri hareket yönüne döndür (Sadece hareket ederken)
+            // RotateTowardsDirection(moveDirection); // Bunu iptal ediyoruz, kafa nereye bakarsa oraya dönsün
             
             // Hareketi uygula
             Vector3 movement = moveDirection * moveSpeed * Time.fixedDeltaTime;
             rb.MovePosition(rb.position + movement);
+        }
+
+        // 2. Rotasyon (Kafa Takibi)
+        // Karakterin vücudunu kameranın baktığı yöne (Y ekseninde) döndür
+        if (cameraTransform != null)
+        {
+            Vector3 lookDir = cameraTransform.forward;
+            lookDir.y = 0; // Sadece yatay düzlemde dön
+            if (lookDir.sqrMagnitude > 0.01f)
+            {
+                Quaternion targetRotation = Quaternion.LookRotation(lookDir);
+                // Yumuşak dönüş
+                rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRotation, rotationSpeed * Time.fixedDeltaTime));
+            }
         }
     }
     

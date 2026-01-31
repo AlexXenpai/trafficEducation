@@ -11,7 +11,8 @@ public class ModSecimi : MonoBehaviour
     
     [Header("XR")]
     public GameObject xrRig;
-
+    public GameObject speedPanel;
+    public GameObject rulesPanel;
     private KameraTakip kameraTakip;
 
     void Start()
@@ -48,7 +49,7 @@ public class ModSecimi : MonoBehaviour
     public void ArabaModunuSec()
     {
         Debug.Log("=== ARABA MODU SEÇİLDİ ===");
-
+        speedPanel.SetActive(true);
         if (arabaOyuncusu != null) arabaOyuncusu.SetActive(true);
         if (yayaOyuncusu != null) yayaOyuncusu.SetActive(false);
 
@@ -57,12 +58,14 @@ public class ModSecimi : MonoBehaviour
             kameraTakip.SetMode(true); // Araba modu
         }
 
-        OyunuBaslat();
+        // Kuralları Göster
+        ShowRules(true);
     }
 
     public void YayaModunuSec()
     {
         Debug.Log("=== YAYA MODU SEÇİLDİ ===");
+        speedPanel.SetActive(false);
 
         if (arabaOyuncusu != null) arabaOyuncusu.SetActive(false);
         if (yayaOyuncusu != null) yayaOyuncusu.SetActive(true);
@@ -72,7 +75,29 @@ public class ModSecimi : MonoBehaviour
             kameraTakip.SetMode(false); // Yaya modu
         }
 
-        OyunuBaslat();
+        // Kuralları Göster
+        ShowRules(false);
+    }
+
+    void ShowRules(bool isCarMode)
+    {
+        if (girisPaneli != null) girisPaneli.SetActive(false);
+
+        RulesManager rules = FindObjectOfType<RulesManager>();
+        if (rules != null)
+        {
+            rules.ShowRules(isCarMode);
+            // Oyun kurallar kapatılınca başlayacak (RulesManager içindeki CloseRules fonksiyonu Time.timeScale = 1 yapmalı veya burası yönetmeli)
+            // Şimdilik RulesManager'da timeScale yönetimi yok, o yüzden burada başlatmıyoruz.
+            // RulesManager'daki CloseButton'a OyunuBaslat fonksiyonunu bağlamamız gerekebilir veya RulesManager kendisi başlatır.
+
+            // En temizi: RulesManager'a bir callback vermek veya RulesManager'ın oyunu başlatmasını sağlamak.
+            // Basitlik için RulesManager'ın Close fonksiyonunda Time.timeScale = 1 yapmasını sağlayalım.
+        }
+        else
+        {
+            OyunuBaslat();
+        }
     }
 
     void OyunuBaslat()
