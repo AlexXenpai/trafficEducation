@@ -12,6 +12,10 @@ public class KameraTakip : MonoBehaviour
 
     [Header("Araba Modu Ayarları")]
     public Vector3 carOffset = new Vector3(0, 2.5f, -8f);
+
+    [Tooltip("Arabanın pitch/roll zıplamasını kameraya yansıtmamak için offset sadece YAW (yatay yön) ile uygulanır.")]
+    public bool useYawOnlyForCarOffset = true;
+
     [Range(0.01f, 1f)]
     public float positionSmoothTime = 0.15f;
     [Range(0.01f, 1f)]
@@ -54,19 +58,35 @@ public class KameraTakip : MonoBehaviour
 
     void FollowCar()
     {
-        Vector3 targetPosition = carTarget.position + carTarget.TransformDirection(carOffset);
+        Vector3 targetPosition;
+
+        if (useYawOnlyForCarOffset)
+        {
+            Vector3 flatForward = carTarget.forward;
+            flatForward.y = 0f;
+            if (flatForward.sqrMagnitude < 0.0001f)
+                flatForward = Vector3.forward;
+
+            Quaternion yawRotation = Quaternion.LookRotation(flatForward.normalized, Vector3.up);
+            targetPosition = carTarget.position + (yawRotation * carOffset);
+        }
+        else
+        {
+            // Eski davranış: offset'i aracın tam rotasyonuyla uygular (pitch/roll zıplatabilir)
+            targetPosition = carTarget.position + carTarget.TransformDirection(carOffset);
+        }
 
         if (!initialized)
         {
             transform.position = targetPosition;
-            
+
             Vector3 lookDir = carTarget.position - transform.position;
             lookDir.y = 0;
             if (lookDir.sqrMagnitude > 0.001f)
             {
                 transform.rotation = Quaternion.LookRotation(lookDir);
             }
-            
+
             initialized = true;
             positionVelocity = Vector3.zero;
             return;
