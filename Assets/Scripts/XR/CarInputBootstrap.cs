@@ -13,8 +13,10 @@ public class CarInputBootstrap : MonoBehaviour
     public string gamepadBinding = "<Gamepad>/leftStick";
 
     [Header("Signals")]
+    // Sol sinyal: Sol controller X butonu (primaryButton)
     public string leftSignalBinding = "<XRController>{LeftHand}/primaryButton";
-    public string rightSignalBinding = "<XRController>{RightHand}/primaryButton";
+    // Sağ sinyal: Sağ controller B butonu (secondaryButton) - primaryButton çakışma yapıyor
+    public string rightSignalBinding = "<XRController>{RightHand}/secondaryButton";
     public string leftSignalKeyboardFallback = "<Keyboard>/q";
     public string rightSignalKeyboardFallback = "<Keyboard>/e";
 
@@ -41,12 +43,16 @@ public class CarInputBootstrap : MonoBehaviour
         if (!string.IsNullOrWhiteSpace(rightSignalBinding)) rightSignalAction.AddBinding(rightSignalBinding);
         if (!string.IsNullOrWhiteSpace(rightSignalKeyboardFallback)) rightSignalAction.AddBinding(rightSignalKeyboardFallback);
 
+        Debug.Log($"CarInputBootstrap: Left signal binding = {leftSignalBinding}");
+        Debug.Log($"CarInputBootstrap: Right signal binding = {rightSignalBinding}");
+
         // Assign
         if (vr != null)
         {
             vr.move = new InputActionProperty(moveAction);
             vr.leftSignalAction = new InputActionProperty(leftSignalAction);
             vr.rightSignalAction = new InputActionProperty(rightSignalAction);
+            Debug.Log("CarInputBootstrap: VRCarInput'a action'lar atandı");
         }
 
         if (hybrid != null)
@@ -54,10 +60,12 @@ public class CarInputBootstrap : MonoBehaviour
             hybrid.xrMoveInput = new InputActionProperty(moveAction);
         }
 
-        // Enable (VRCarInput/HybridCarController da enable ediyor ama garanti olsun)
+        // Enable
         moveAction.Enable();
         leftSignalAction.Enable();
         rightSignalAction.Enable();
+        
+        Debug.Log("CarInputBootstrap: Tüm action'lar etkinleştirildi");
     }
 
     void OnDestroy()

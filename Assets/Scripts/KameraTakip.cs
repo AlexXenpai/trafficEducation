@@ -1,4 +1,8 @@
 using UnityEngine;
+using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.Locomotion.Gravity;
+using UnityEngine.XR.Interaction.Toolkit.Locomotion.Movement;
+using UnityEngine.XR.Interaction.Toolkit.Locomotion.Turning;
 
 /// <summary>
 /// XR Origin'i (kamera sistemini) araba veya yaya moduna göre konumlandırır.
@@ -33,9 +37,37 @@ public class KameraTakip : MonoBehaviour
     private float rotationVelocity = 0f;
 
     private bool initialized = false;
+    
+    // Locomotion bileşenleri (araba modunda devre dışı bırakılacak)
+    private ActionBasedContinuousMoveProvider moveProvider;
+    private ActionBasedSnapTurnProvider snapTurnProvider;
+    private ActionBasedContinuousTurnProvider continuousTurnProvider;
+    private CharacterController characterController;
+    private GravityProvider gravityProvider;
+    private XRLocomotionBootstrap locomotionBootstrap;
+    
+    // Yeni locomotion sistemi bileşenleri
+    private ContinuousMoveProvider continuousMoveProvider;
+    private SnapTurnProvider newSnapTurnProvider;
+    private ContinuousTurnProvider newContinuousTurnProvider;
 
     void Start()
     {
+        // Locomotion bileşenlerini bul (eski sistem)
+        moveProvider = GetComponent<ActionBasedContinuousMoveProvider>();
+        snapTurnProvider = GetComponent<ActionBasedSnapTurnProvider>();
+        continuousTurnProvider = GetComponent<ActionBasedContinuousTurnProvider>();
+        characterController = GetComponent<CharacterController>();
+        locomotionBootstrap = GetComponent<XRLocomotionBootstrap>();
+        
+        // Child'larda ara
+        gravityProvider = GetComponentInChildren<GravityProvider>();
+        
+        // Yeni locomotion sistemi (Locomotion child'ında)
+        continuousMoveProvider = GetComponentInChildren<ContinuousMoveProvider>();
+        newSnapTurnProvider = GetComponentInChildren<SnapTurnProvider>();
+        newContinuousTurnProvider = GetComponentInChildren<ContinuousTurnProvider>();
+        
         if (carTarget != null)
         {
             SetCarMode();
@@ -145,6 +177,10 @@ public class KameraTakip : MonoBehaviour
         initialized = false;
         positionVelocity = Vector3.zero;
         rotationVelocity = 0f;
+        
+        // Araba modunda locomotion'ı devre dışı bırak
+        DisableLocomotion();
+        
         Debug.Log("Kamera: Araba Moduna geçildi");
     }
 
@@ -153,6 +189,9 @@ public class KameraTakip : MonoBehaviour
         isCarMode = false;
         initialized = false;
         
+        // Yaya modunda locomotion'ı etkinleştir
+        EnableLocomotion();
+        
         // Yaya moduna geçerken hemen konumlan
         if (pedestrianTarget != null)
         {
@@ -160,6 +199,88 @@ public class KameraTakip : MonoBehaviour
         }
         
         Debug.Log("Kamera: Yaya Moduna geçildi");
+    }
+    
+    private void DisableLocomotion()
+    {
+        // Eski sistem - Move provider'ı devre dışı bırak
+        if (moveProvider != null)
+            moveProvider.enabled = false;
+        
+        // Eski sistem - Snap turn provider'ı devre dışı bırak
+        if (snapTurnProvider != null)
+            snapTurnProvider.enabled = false;
+            
+        // Eski sistem - Continuous turn provider'ı devre dışı bırak
+        if (continuousTurnProvider != null)
+            continuousTurnProvider.enabled = false;
+        
+        // Character controller'ı devre dışı bırak
+        if (characterController != null)
+            characterController.enabled = false;
+        
+        // Gravity provider'ı devre dışı bırak
+        if (gravityProvider != null)
+            gravityProvider.enabled = false;
+            
+        // Locomotion bootstrap'ı devre dışı bırak
+        if (locomotionBootstrap != null)
+            locomotionBootstrap.enabled = false;
+            
+        // Yeni sistem - Move provider
+        if (continuousMoveProvider != null)
+            continuousMoveProvider.enabled = false;
+            
+        // Yeni sistem - Snap turn
+        if (newSnapTurnProvider != null)
+            newSnapTurnProvider.enabled = false;
+            
+        // Yeni sistem - Continuous turn
+        if (newContinuousTurnProvider != null)
+            newContinuousTurnProvider.enabled = false;
+        
+        Debug.Log("Locomotion devre dışı bırakıldı (Araba modu)");
+    }
+    
+    private void EnableLocomotion()
+    {
+        // Eski sistem - Move provider'ı etkinleştir
+        if (moveProvider != null)
+            moveProvider.enabled = true;
+        
+        // Yaya modunda SNAP TURN KAPALI - sadece smooth/continuous turn
+        if (snapTurnProvider != null)
+            snapTurnProvider.enabled = false;
+            
+        // Yaya modunda CONTINUOUS TURN AÇIK - smooth dönüş
+        if (continuousTurnProvider != null)
+            continuousTurnProvider.enabled = true;
+        
+        // Character controller'ı etkinleştir
+        if (characterController != null)
+            characterController.enabled = true;
+        
+        // Gravity provider'ı etkinleştir
+        if (gravityProvider != null)
+            gravityProvider.enabled = true;
+            
+        // Locomotion bootstrap'ı etkinleştir
+        if (locomotionBootstrap != null)
+            locomotionBootstrap.enabled = true;
+            
+        // Yeni sistem - Move provider
+        if (continuousMoveProvider != null)
+            continuousMoveProvider.enabled = true;
+            
+        // Yeni sistem - Snap turn KAPALI
+        if (newSnapTurnProvider != null)
+            newSnapTurnProvider.enabled = false;
+            
+        // Yeni sistem - Continuous turn AÇIK
+        if (newContinuousTurnProvider != null)
+            newContinuousTurnProvider.enabled = true;
+        
+        Debug.Log("Locomotion etkinleştirildi (Yaya modu - Smooth Turn)");
     }
 
     public void SetMode(bool carMode)

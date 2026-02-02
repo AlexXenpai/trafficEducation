@@ -83,9 +83,20 @@ public class XRTurnModeSwitcher : MonoBehaviour
     {
         bool carMode = IsCarMode();
 
-        // Car: snap on, continuous off
-        if (snapTurn != null) snapTurn.enabled = carMode;
-        if (continuousTurn != null) continuousTurn.enabled = !carMode;
+        // Araba modunda: her iki turn provider da kapalı (KameraTakip yönetiyor)
+        // Yaya modunda: continuous turn açık, snap turn kapalı
+        if (carMode)
+        {
+            // Araba modunda turn provider'lar kapalı - kamera arabayı takip ediyor
+            if (snapTurn != null) snapTurn.enabled = false;
+            if (continuousTurn != null) continuousTurn.enabled = false;
+        }
+        else
+        {
+            // Yaya modunda: continuous turn açık
+            if (snapTurn != null) snapTurn.enabled = false;
+            if (continuousTurn != null) continuousTurn.enabled = true;
+        }
     }
 
     static void SetInputActionProperty(Component component, string[] candidateNames, InputAction action)

@@ -44,6 +44,7 @@ public class CarSignalSystem : MonoBehaviour
 
     public void ToggleRightSignal()
     {
+        Debug.Log("ToggleRightSignal called");
         if (isRightSignalOn)
         {
             StopSignal();
@@ -54,6 +55,7 @@ public class CarSignalSystem : MonoBehaviour
             isLeftSignalOn = false; // Turn off left if it was on
             StartBlinking();
         }
+        Debug.Log("ToggleRightSignal finished");
     }
 
     public void StopSignal()
